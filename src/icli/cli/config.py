@@ -76,9 +76,9 @@ def project_path(start: Path | None = None, *, create: bool = False) -> Path | N
 
 
 def global_path() -> Path:
-    from .env import idausr
+    from .env import icli_home
 
-    return idausr() / "icli.toml"
+    return icli_home() / "icli.toml"
 
 
 def system_path() -> Path | None:

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ...errors import Exit, IdaxError, combine, usage
-from ..env import idausr
+from ..env import icli_home, idausr
 from ..output import Emitter
 from ..registry import Command, Invocation, register, stdin_lines
 
@@ -18,12 +18,12 @@ from ..registry import Command, Invocation, register, stdin_lines
 
 
 def recipe_path(name: str) -> Path:
-    for base in (idausr() / "icli" / "recipes", idausr() / "idx" / "recipes", Path.cwd()):
+    for base in (icli_home() / "icli" / "recipes", idausr() / "idx" / "recipes", Path.cwd()):
         for ext in (".icli", ".idx", ""):
             p = base / f"{name}{ext}"
             if p.is_file():
                 return p
-    raise IdaxError(Exit.NOT_FOUND, f"recipe @{name} not found in {idausr() / 'icli' / 'recipes'}", "NOTFOUND")
+    raise IdaxError(Exit.NOT_FOUND, f"recipe @{name} not found in {icli_home() / 'icli' / 'recipes'}", "NOTFOUND")
 
 
 def recipe_steps(name: str, fields: dict[str, str]) -> list[list[str]]:

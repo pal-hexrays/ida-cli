@@ -25,8 +25,11 @@ def _rounds(text: str | None) -> tuple[str, ...]:
 
 
 def open_pair(inv: Invocation, old: str, new: str) -> tuple[Any, Any]:
-    from ..opening import open_session
+    from ..opening import open_session, resolve_target
 
+    if resolve_target(old, inv.g).db == resolve_target(new, inv.g).db:
+        s = open_session(old, inv.g, inv.emitter.diag)
+        return s, s  # one database: one session (closing it twice is harmless)
     with ThreadPoolExecutor(max_workers=2) as pool:
         fo = pool.submit(open_session, old, inv.g, inv.emitter.diag)
         fn = pool.submit(open_session, new, inv.g, inv.emitter.diag)

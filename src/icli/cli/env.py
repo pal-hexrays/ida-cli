@@ -31,6 +31,13 @@ def idausr() -> Path:
     return Path("~/.idapro").expanduser()
 
 
+def icli_home() -> Path:
+    """Where icli keeps its own files (icli.toml, recipes): ICLI_HOME, else
+    the first IDAUSR directory."""
+    v = os.environ.get("ICLI_HOME")
+    return Path(v).expanduser() if v else idausr()
+
+
 @lru_cache(maxsize=1)
 def idadir() -> Path | None:
     v = os.environ.get("IDADIR")
