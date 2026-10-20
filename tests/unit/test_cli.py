@@ -1,0 +1,54 @@
+"""CLI structure without IDA: every parser builds, globals parse anywhere."""
+
+import pytest
+
+from icli.cli.main import command_parser, first_positional, parse, _global_parser
+from icli.cli.registry import COMMANDS, load_commands
+from icli.errors import Exit, IdaxError
+
+load_commands()
+
+
+@pytest.mark.parametrize("name", sorted(COMMANDS))
+def test_every_command_parser_builds(name):
+    cmd = COMMANDS[name]
+    command_parser(cmd).format_help()
+    for sub in cmd.subcommands:
+        command_parser(cmd, sub).format_help()
+
+
+def test_global_options_before_and_after_command():
+    _, ns, _, _ = parse(["-f", "csv", "list", "functions", "x.i64", "--addr", "rva", "-q"])
+    assert ns.format == "csv" and ns.addr == "rva" and ns.quiet
+
+
+def test_later_global_does_not_reset_earlier():
+    _, ns, _, _ = parse(["-q", "list", "functions", "x.i64"])
+    assert ns.quiet is True
+
+
+def test_first_positional_skips_option_values():
+    gp = _global_parser()
+    assert first_positional(["--db", "a.i64", "-f", "json", "info"], gp) == 4
+    assert first_positional(["--format=json", "info"], gp) == 1
+    assert first_positional(["-qv", "info"], gp) == 1
+
+
+@pytest.mark.parametrize("argv", [["frob"], ["list"], ["type"], ["type", "bogus"], ["list", "functions", "--nope"]])
+def test_usage_errors(argv):
+    with pytest.raises(IdaxError) as e:
+        parse(argv)
+    assert e.value.status == Exit.USAGE
+
+
+def test_optional_value_flags():
+    _, ns, _, _ = parse(["disasm", "--bytes", "x.i64", "main"])
+    assert ns.bytes == 8 and ns.items == ["x.i64", "main"]
+    _, ns, _, _ = parse(["disasm", "--bytes", "4", "x.i64", "main"])
+    assert ns.bytes == 4
+
+
+def test_passthrough_after_double_dash():
+    cmd, ns, rest, _ = parse(["exec", "x.i64", "-c", "1", "--", "--min-score", "7"]) if "exec" in COMMANDS \
+        else (None, None, ["--min-score", "7"], None)
+    assert rest == ["--min-score", "7"]

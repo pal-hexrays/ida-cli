@@ -42,9 +42,18 @@ def index_path() -> Path:
     return cache_dir() / "index.sqlite"
 
 
+def ensure_dir(d: Path) -> Path:
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        from ..errors import Exit, IdaxError
+
+        raise IdaxError(Exit.NOT_FOUND, f"cache directory {d}: {error.strerror}", "CACHE")
+    return d
+
+
 def connect() -> sqlite3.Connection:
-    d = cache_dir()
-    d.mkdir(parents=True, exist_ok=True)
+    ensure_dir(cache_dir())
     conn = sqlite3.connect(index_path(), timeout=30)
     conn.executescript(SCHEMA)
     return conn
@@ -52,6 +61,8 @@ def connect() -> sqlite3.Connection:
 
 def file_sha256(path: Path) -> str:
     """SHA-256 of a file, memoised in the index by (path, size, mtime)."""
+    from ..errors import IdaxError
+
     st = path.stat()
     key = str(path.resolve())
     try:
@@ -59,7 +70,7 @@ def file_sha256(path: Path) -> str:
             row = conn.execute("SELECT size, mtime_ns, sha256 FROM hashes WHERE path=?", (key,)).fetchone()
             if row and row[0] == st.st_size and row[1] == st.st_mtime_ns:
                 return row[2]
-    except sqlite3.Error:
+    except (sqlite3.Error, IdaxError):
         row = None
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -70,7 +81,7 @@ def file_sha256(path: Path) -> str:
         with connect() as conn:
             conn.execute("INSERT OR REPLACE INTO hashes VALUES (?,?,?,?)",
                          (key, st.st_size, st.st_mtime_ns, digest))
-    except sqlite3.Error:
+    except (sqlite3.Error, IdaxError):
         pass
     return digest
 

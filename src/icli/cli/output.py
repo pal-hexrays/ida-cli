@@ -142,7 +142,7 @@ class Emitter:
         if not self._header_done:
             self._header_done = True
             if self.opts.header and not self.opts.no_header:
-                self.out.write(tmpl.parse(self.opts.header).render({}))
+                self.out.write(tmpl.parse(self.opts.header, record_newline=False).render({}))
 
     def _write_raw(self, rec: dict) -> None:
         if self.raw_field and self.raw_field in rec and rec[self.raw_field] is not None:
@@ -192,7 +192,7 @@ class Emitter:
         if self._template is not None:
             self._write_header()
             if self.opts.footer and not self.opts.no_header:
-                self.out.write(tmpl.parse(self.opts.footer).render({"count": self.count}))
+                self.out.write(tmpl.parse(self.opts.footer, record_newline=False).render({"count": self.count}))
         elif self.format == "json":
             doc: dict[str, Any] = {}
             schema = self.schema or (self._buffer[0].get("_t") if self._buffer else None)

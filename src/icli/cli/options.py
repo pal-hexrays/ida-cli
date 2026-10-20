@@ -19,10 +19,6 @@ from .output import FORMATS, OutputOptions
 S = argparse.SUPPRESS
 
 
-def _append(p: argparse.ArgumentParser, *names: str, **kw: Any) -> None:
-    p.add_argument(*names, action="append", default=S, **kw)
-
-
 def add_global_options(p: argparse.ArgumentParser, skip: frozenset[str] = frozenset()) -> None:
     """``skip``: option strings a command redefines (``tag --color RRGGBB``)."""
     group = p.add_argument_group("global options")
@@ -66,8 +62,16 @@ def add_global_options(p: argparse.ArgumentParser, skip: frozenset[str] = frozen
     g.add_argument("--no-demangle", dest="demangle", action="store_false", default=S)
 
 
-def add_load_options(p: argparse.ArgumentParser) -> None:
-    g = p.add_argument_group("load options")
+def add_load_options(p: argparse.ArgumentParser, skip: frozenset[str] = frozenset()) -> None:
+    group = p.add_argument_group("load options")
+
+    class _G:
+        @staticmethod
+        def add_argument(*names: str, **kw: Any) -> None:
+            if not skip.intersection(names):
+                group.add_argument(*names, **kw)
+
+    g = _G()
     g.add_argument("--loader", metavar="NAME", default=S)
     g.add_argument("--processor", metavar="NAME[:VARIANT]", default=S)
     g.add_argument("--bitness", type=int, choices=(16, 32, 64), default=S)
@@ -75,9 +79,9 @@ def add_load_options(p: argparse.ArgumentParser) -> None:
     g.add_argument("--base", metavar="ADDR", default=S)
     g.add_argument("--entry", metavar="ADDR", default=S)
     g.add_argument("--compiler", metavar="ID[:ABI]", default=S)
-    _append(g, "--segment", metavar="NAME=START-END[:CLASS][:PERM][@FILE[:OFFSET]]")
+    g.add_argument("--segment", metavar="NAME=START-END[:CLASS][:PERM][@FILE[:OFFSET]]", action="append", default=S)
     g.add_argument("--svd", metavar="FILE", default=S)
-    _append(g, "--load-opt", metavar="LOADER.KEY=VALUE")
+    g.add_argument("--load-opt", metavar="LOADER.KEY=VALUE", action="append", default=S)
     g.add_argument("--symbols", metavar="SRC[,SRC...]", default=S)
     g.add_argument("--encoding", metavar="NAME", default=S)
     g.add_argument("--no-segmentation", action="store_true", default=S)

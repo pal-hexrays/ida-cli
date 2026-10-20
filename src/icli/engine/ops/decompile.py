@@ -163,7 +163,14 @@ def decompile(ctx: Ctx, selectors: list[dict] | None = None, all: bool = False, 
         decomp.reset()
     fk = KINDS["function"]
     if all:
-        funcs = [it for it in fk.all(ctx) if not fk.get(it, "lib", ctx)]
+        import ida_segment
+
+        def decompilable(it: Any) -> bool:
+            seg = ida_segment.getseg(it.ea)
+            return not fk.get(it, "lib", ctx) and (seg is None or seg.type not in (
+                ida_segment.SEG_XTRN, ida_segment.SEG_IMP))
+
+        funcs = [it for it in fk.all(ctx) if decompilable(it)]
         if selectors:
             keep = {it.ea for it in select.functions_of(ctx, selection(ctx, selectors, required=False))}
             funcs = [f for f in funcs if f.ea in keep]

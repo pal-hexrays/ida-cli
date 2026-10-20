@@ -134,7 +134,7 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
         return Target(original, p, tmp / (p.name + ".i64"), None, load, temporary=True)
     key = cache.cache_key(sha, load)
     dbp = cache.db_path_for(key)
-    dbp.parent.mkdir(parents=True, exist_ok=True)
+    cache.ensure_dir(dbp.parent)
     cache.record(key, p, sha, load, dbp)
     return Target(original, p, dbp, key, load)
 

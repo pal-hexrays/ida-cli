@@ -335,6 +335,7 @@ class Make(Edit):
     name = "make"
     group = "edit"
     summary = "convert items: code, data, strings, arrays, structs, offsets, unknown"
+    overrides = frozenset({"--base", "--encoding"})
 
     def configure(self, p: argparse.ArgumentParser) -> None:
         p.add_argument("kind", choices=MAKE_KINDS, metavar="kind")
