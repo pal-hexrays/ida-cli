@@ -49,7 +49,7 @@ def split_steps(tokens: list[str]) -> list[list[str]]:
 
 
 def run_chain(inv: Invocation, steps: list[list[str]], *, keep_going: bool, no_save: bool,
-              tag_steps: bool = False) -> int:
+              tag_steps: bool = False, keep_selection: bool = False) -> int:
     """Run steps against one open database, left to right.  The database is
     saved once, at the end, and only if every step succeeded (or
     --keep-going); --no-save discards all changes."""
@@ -60,7 +60,8 @@ def run_chain(inv: Invocation, steps: list[list[str]], *, keep_going: bool, no_s
     status = 0
     failed = False
     prev: list[dict] = []
-    base = {k: v for k, v in vars(inv.args).items() if k not in ("items", "sub", "keep_going", "no_save")}
+    base = {k: v for k, v in vars(inv.args).items()
+            if k not in ("items", "sub", "keep_going", "no_save", "keep_selection")}
     for index, argv in enumerate(steps, 1):
         if argv and argv[0] in ("do", "batch"):
             raise usage(f"step {index}: chains do not nest")
@@ -68,6 +69,8 @@ def run_chain(inv: Invocation, steps: list[list[str]], *, keep_going: bool, no_s
             cmd, ns, passthrough, tail = parse(argv)
             if cmd is None:
                 raise usage(f"step {index}: empty step")
+            if keep_selection and prev and cmd.target != "none" and not getattr(ns, "items", None):
+                ns.items = ["%"]  # the previous step's records are this step's selection
             merged = argparse.Namespace(**{**base, **vars(ns)})
             g = GlobalOptions.from_namespace(merged)
             emitter = Emitter(g.output, raw_field=cmd.raw_field)
@@ -104,6 +107,7 @@ class Do(Command):
         p.add_argument("items", nargs="*", metavar="target [@recipe] [step...]")
         p.add_argument("--keep-going", action="store_true")
         p.add_argument("--no-save", action="store_true")
+        p.add_argument("--keep-selection", action="store_true", help="steps without selectors use %%")
 
     def run(self, inv: Invocation) -> int:
         items = list(inv.args.items)
@@ -126,7 +130,8 @@ class Do(Command):
                 steps.append(step)
         if not steps:
             raise usage("icli do: no steps (use: icli do TARGET -- step :: step, or @recipe)")
-        return run_chain(inv, steps, keep_going=inv.args.keep_going, no_save=inv.args.no_save)
+        return run_chain(inv, steps, keep_going=inv.args.keep_going, no_save=inv.args.no_save,
+                         keep_selection=inv.args.keep_selection)
 
 
 @register
@@ -140,6 +145,7 @@ class Batch(Command):
         p.add_argument("items", nargs="*", metavar="target [file|-]")
         p.add_argument("--keep-going", action="store_true")
         p.add_argument("--no-save", action="store_true")
+        p.add_argument("--keep-selection", action="store_true", help="steps without selectors use %%")
 
     def run(self, inv: Invocation) -> int:
         items = list(inv.args.items)
@@ -157,7 +163,8 @@ class Batch(Command):
         steps = [shlex.split(line) for line in lines if line.strip() and not line.strip().startswith("#")]
         if not steps:
             raise usage("icli batch: no steps")
-        return run_chain(inv, steps, keep_going=inv.args.keep_going, no_save=inv.args.no_save, tag_steps=True)
+        return run_chain(inv, steps, keep_going=inv.args.keep_going, no_save=inv.args.no_save, tag_steps=True,
+                         keep_selection=inv.args.keep_selection)
 
 
 # -- exec -----------------------------------------------------------------------------------
