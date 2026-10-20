@@ -52,6 +52,8 @@ class Command:
     edits: ClassVar[bool] = False
     passthrough: ClassVar[bool] = False     # keep tokens after "--"
     subcommands: ClassVar[dict[str, str]] = {}
+    # options whose value is optional ("--bytes [N]"): flag -> (default, accepts(token))
+    optional_values: ClassVar[dict[str, tuple[str, Callable[[str], bool]]]] = {}
 
     def configure(self, p: argparse.ArgumentParser) -> None:
         p.add_argument("items", nargs="*", metavar="target/selector", help="target and selectors")

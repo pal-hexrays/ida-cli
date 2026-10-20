@@ -112,11 +112,36 @@ def parse(argv: list[str]) -> tuple[Command | None, argparse.Namespace, list[str
             rest = rest[:j] + rest[j + 1:]
         elif not any(t in ("-h", "--help") for t in rest):
             raise usage(f"icli {name}: missing subcommand (one of: {', '.join(cmd.subcommands)})")
+    rest = _optional_values(cmd, rest)
     cp = command_parser(cmd, sub)
     cns = cp.parse_intermixed_args(rest)
     merged = argparse.Namespace(**{**vars(ns), **vars(cns)})
     merged.sub = sub
     return cmd, merged, passthrough, tail
+
+
+def _optional_values(cmd: Command, rest: list[str]) -> list[str]:
+    """``--bytes [N]``: a following token is the value only when acceptable;
+    otherwise the flag takes its default and the token stays positional."""
+    if not cmd.optional_values:
+        return rest
+    out: list[str] = []
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        spec = cmd.optional_values.get(tok)
+        if spec is not None:
+            default, accepts = spec
+            if i + 1 < len(rest) and accepts(rest[i + 1]):
+                out.append(f"{tok}={rest[i + 1]}")
+                i += 2
+                continue
+            out.append(f"{tok}={default}")
+            i += 1
+            continue
+        out.append(tok)
+        i += 1
+    return out
 
 
 def general_help() -> str:

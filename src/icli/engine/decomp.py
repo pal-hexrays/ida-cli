@@ -146,7 +146,7 @@ def microcode(ea: int, maturity: str = "lvars") -> str:
             self.lines: list[str] = []
 
         def _print(self, indent: int, line: str) -> int:  # noqa: N802 (SDK name)
-            self.lines.append(ida_lines.tag_remove(line))
+            self.lines.append(ida_lines.tag_remove(line).rstrip("\n"))
             return 1
 
     p = _Printer()
