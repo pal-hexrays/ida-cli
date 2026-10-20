@@ -218,3 +218,27 @@ def local_database(path: Path, args: str = "", *, save: bool = True) -> Iterator
         raise
     else:
         idapro.close_database(save)
+
+
+@contextlib.contextmanager
+def scratch_database() -> Iterator[Any]:
+    """An empty throw-away database, for kernel APIs that require one
+    (type library work without a target)."""
+    import tempfile
+
+    kernel()
+    import idapro
+
+    d = Path(tempfile.mkdtemp(prefix="icli-scratch-"))
+    blob = d / "scratch.bin"
+    blob.write_bytes(b"\x90" * 16)
+    rc = idapro.open_database(str(blob), False, "-Tbinary -pmetapc")
+    if rc != 0:
+        raise IdaxError(Exit.INTERNAL, f"cannot create a scratch database (error {rc})", "INTERR")
+    try:
+        yield idapro
+    finally:
+        idapro.close_database(False)
+        import shutil
+
+        shutil.rmtree(d, ignore_errors=True)
