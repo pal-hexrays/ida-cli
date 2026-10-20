@@ -170,7 +170,7 @@ def general_help() -> str:
     lines = ["usage: icli [global-options] command [command-options] [target] [selector...]", "",
              "Non-interactive IDA Pro: analysis, decompilation and annotation.", "", "commands:"]
     for group, _ in GROUPS:
-        cmds = [c for c in COMMANDS.values() if c.group == group]
+        cmds = [c for c in COMMANDS.values() if c.group == group and not c.name.startswith("_")]
         lines.append(f"  {group}")
         for c in cmds:
             lines.append(f"    {c.name:<12} {c.summary}")
