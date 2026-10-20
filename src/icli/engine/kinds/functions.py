@@ -270,9 +270,16 @@ class Functions(Kind):
         r = decomp.decompile(it.ea)
         return r.text if r.ok else None
 
-    def f_hexrays_err(self, it: Item, ctx: Ctx) -> int:
+    def f_hexrays_err(self, it: Item, ctx: Ctx) -> int | None:
+        """Decompiler error code (0 = ok); null for import stubs, which
+        are not code to decompile."""
+        import ida_segment
+
         from .. import decomp
 
+        seg = ida_segment.getseg(it.ea)
+        if seg is not None and seg.type in (ida_segment.SEG_XTRN, ida_segment.SEG_IMP):
+            return None
         return decomp.decompile(it.ea).err
 
     def f_hexrays_msg(self, it: Item, ctx: Ctx) -> str | None:

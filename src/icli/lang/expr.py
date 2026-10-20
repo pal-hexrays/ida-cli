@@ -222,6 +222,8 @@ def _compare(op: str, a: Any, b: Any) -> bool:
         except re.error as error:
             raise usage(f"bad regular expression {b!r}: {error}")
     na, nb = _num(a), _num(b)
+    if (a is None) != (b is None):
+        return False  # a missing value compares false (unless compared with null itself)
     if op == "==":
         if isinstance(na, (list, tuple)) and not isinstance(nb, (list, tuple)):
             return nb in na

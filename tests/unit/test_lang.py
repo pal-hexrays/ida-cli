@@ -117,7 +117,9 @@ def _rec(**kw):
     ('module ~ "(?i)ws2_32"', dict(module="WS2_32.dll"), True),
     ('module ~ "(?i)ws2_32"', dict(module=None), False),
     ("ea >= 0x401000", dict(ea="0x401000"), True),                 # address strings
-    ("hexrays_err != 0", dict(hexrays_err=None), True),
+    ("hexrays_err != 0", dict(hexrays_err=None), False),            # missing compares false
+    ("x == null", dict(x=None), True),
+    ("x != null", dict(x=3), False),
     ("a || b && c", dict(a=False, b=True, c=False), False),          # && binds tighter
     ("!(a || b)", dict(a=False, b=False), True),
     ("size - 4 == 12", dict(size=16), True),
