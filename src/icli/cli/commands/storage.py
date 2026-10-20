@@ -107,21 +107,17 @@ class Db(Command):
         return 0
 
     def do_upgrade(self, inv: Invocation, items: list[str]) -> int:
-        from ..env import idadir
+        from ..local import upgrade_idb
 
         old = _db_path(self._one(items, "upgrade"))
-        out = Path(inv.args.output).expanduser().resolve() if inv.args.output else old.with_suffix(".i64")
+        out = Path(inv.args.output).expanduser().resolve() if inv.args.output else None
         if old.suffix == ".i64":
             inv.emit([{"_t": "db", "db": str(old), "status": "unchanged"}])
             return 0
-        tool = idadir() / "upg32" if idadir() else None
-        if tool is None or not tool.exists():
-            raise IdaxError(Exit.LICENSE, "upg32 (database upgrade tool) not found in the IDA installation",
-                            "NOTOOL")
-        res = subprocess.run([str(tool), "-A", f"-o{out}", str(old)], capture_output=True, text=True)
-        if not out.exists():
-            raise IdaxError(Exit.CORRUPT, f"{old}: upgrade failed: {(res.stderr or res.stdout)[-500:]}", "UPGRADE")
-        inv.emit([{"_t": "db", "db": str(out), "from": str(old), "status": "upgraded"}])
+        if out is not None and out.exists():
+            raise IdaxError(Exit.CONFLICT, f"{out}: already exists", "CONFLICT")
+        result = upgrade_idb(old, out)
+        inv.emit([{"_t": "db", "db": str(result), "from": str(old), "status": "upgraded"}])
         return 0
 
     def do_check(self, inv: Invocation, items: list[str]) -> int:
@@ -324,10 +320,11 @@ class Cache(Command):
 
 
 def _hv() -> list[str]:
-    from ..env import idadir
+    from ..env import env, idadir
 
     d = idadir()
-    tool = d / "hv" if d else None
+    override = env("HV")  # ICLI_HV: an alternative hv binary
+    tool = Path(override) if override else (d / "hv" if d else None)
     if tool is None or not tool.exists():
         raise IdaxError(Exit.LICENSE, "hv (IDA Teams client) not found in the IDA installation", "NOTOOL")
     cmd = [str(tool)]

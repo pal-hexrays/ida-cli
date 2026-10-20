@@ -242,3 +242,35 @@ def scratch_database() -> Iterator[Any]:
         import shutil
 
         shutil.rmtree(d, ignore_errors=True)
+
+
+def _repair_input_path(idb: Path) -> None:
+    """Old databases may store the input path in a legacy 8-bit encoding,
+    which idalib (and ida-nexus) cannot decode: rewrite it as UTF-8."""
+    import ida_nalt
+
+    try:
+        ida_nalt.get_input_file_path()
+        ida_nalt.get_root_filename()
+    except UnicodeDecodeError:
+        ida_nalt.set_root_filename(str(idb.with_suffix("")))
+
+
+def upgrade_idb(idb: Path, out: Path | None = None) -> Path:
+    """Convert a legacy .idb to .i64: idalib upgrades it when opening, and
+    saving writes the .i64 next to it.  Returns the .i64 path."""
+    import shutil
+
+    target = idb.with_suffix(".i64")
+    if target.exists() and out is None:
+        return target
+    with local_database(idb, ""):
+        _repair_input_path(idb)
+    if not target.exists():
+        raise IdaxError(Exit.CORRUPT, f"{idb}: the kernel did not produce {target.name}", "UPGRADE")
+    for leftover in (idb.with_suffix(".id0.upgrade.log"),):
+        leftover.unlink(missing_ok=True)
+    if out is not None and out.resolve() != target.resolve():
+        shutil.move(str(target), str(out))
+        return out
+    return target

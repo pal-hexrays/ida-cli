@@ -345,3 +345,24 @@ def test_dynamic_commands_need_allow_execute(icli):
     assert icli("debug", "run", "sample.o").code == 2
     assert icli("trace", "sample.o").code == 2
     assert icli("debug", "attach", "sample.o").code == 2
+
+
+LEGACY_IDBS = [Path.home() / "devel/projects/hexrays/python-idb/tests/data/elf/ls.idb",
+               Path.home() / "devel/projects/hexrays/idb-rs/resources/idbs/func_comment.idb"]
+
+
+@pytest.mark.parametrize("src", LEGACY_IDBS, ids=lambda p: p.name)
+def test_legacy_idb_upgrade(icli, tmp_path, src):
+    """IDA 9 cannot create a 32-bit .idb, so these use local legacy samples."""
+    if not src.exists():
+        pytest.skip(f"no legacy sample {src}")
+    old = tmp_path / src.name
+    shutil.copy(src, old)
+    out = tmp_path / "up.i64"
+    r = icli("db", "upgrade", "-o", str(out), str(old))
+    assert r.code == 0 and out.exists()
+    assert icli("list", "functions", "--count", str(out)).record["count"] > 0
+    assert icli("db", "upgrade", "-o", str(out), str(old)).code == 9          # never overwrites
+    other = tmp_path / "again.idb"
+    shutil.copy(src, other)
+    assert icli("list", "functions", "--count", str(other)).code == 0          # upgraded on first use

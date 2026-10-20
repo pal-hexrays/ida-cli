@@ -110,6 +110,10 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
         if load:
             raise usage("load options apply to input files, not to an existing database "
                         f"({', '.join(sorted(load))})")
+        if p.suffix == ".idb" and create:
+            from .local import upgrade_idb
+
+            p = upgrade_idb(p)  # a legacy .idb is upgraded to .i64 on first use
         return Target(original, None, p)
 
     member = None
