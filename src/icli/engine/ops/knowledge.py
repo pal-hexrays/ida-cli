@@ -263,7 +263,7 @@ def _lumina() -> Any:
         raise IdaxError(Exit.LICENSE, "this IDA has no Lumina support", "LICENSE")
     conn = ida_lumina.get_server_connection()
     if conn is None:
-        raise IdaxError(Exit.NETWORK, "cannot connect to the Lumina server (see ida.cfg LUMINA_*)", "NETWORK")
+        raise IdaxError(Exit.NETWORK, "cannot connect to the Lumina server (configured in IDA: Options > General > Lumina)", "NETWORK")
     return ida_lumina, conn
 
 
