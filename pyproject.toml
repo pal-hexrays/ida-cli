@@ -1,0 +1,25 @@
+[project]
+name = "icli"
+version = "0.1.0"
+description = "icli: non-interactive IDA Pro command-line interface (idx(1))"
+authors = [
+    { name = "Pierre-Alexandre Losson", email = "palosson@hex-rays.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "ida-domain>=0.5.1",
+    "ida-nexus>=0.13.4",
+]
+
+[project.scripts]
+icli = "icli:main"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
