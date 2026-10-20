@@ -1,4 +1,4 @@
-"""Triage over a database (info) and analysis commands (analyze, status)."""
+"""Analysis commands: analyze, status."""
 
 from __future__ import annotations
 
@@ -9,19 +9,6 @@ import time
 
 from ...errors import Exit
 from ..registry import Command, Invocation, register
-
-
-@register
-class Info(Command):
-    name = "info"
-    group = "triage"
-    summary = "summarise a database"
-
-    def run(self, inv: Invocation) -> int:
-        inv.positionals()
-        session = inv.open()
-        inv.call("info", {"cache_key": session.target.key})
-        return 0
 
 
 @register

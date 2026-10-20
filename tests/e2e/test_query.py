@@ -208,4 +208,4 @@ def test_default_target_from_env(icli, workdir):
 
 def test_show_code_prints_python(icli):
     r = icli("--show-code", "list", "functions", "--where", "size > 0x40", "sample.o")
-    assert r.code == 0 and "db.functions" in r.out and "f.size > 64" in r.out
+    assert r.code == 0 and "db.functions" in r.out and "f.size() > 64" in r.out

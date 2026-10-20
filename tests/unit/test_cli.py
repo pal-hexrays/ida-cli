@@ -52,3 +52,17 @@ def test_passthrough_after_double_dash():
     cmd, ns, rest, _ = parse(["exec", "x.i64", "-c", "1", "--", "--min-score", "7"]) if "exec" in COMMANDS \
         else (None, None, ["--min-score", "7"], None)
     assert rest == ["--min-score", "7"]
+
+
+def test_command_options_never_leak_into_load_options():
+    from icli.cli.options import GlobalOptions
+
+    _, ns, _, _ = parse(["make", "string", "x.i64", "0x10", "--encoding", "utf-16le", "--base", "0x10"])
+    assert GlobalOptions.from_namespace(ns).load == {}
+
+
+def test_exec_read_only_after_command_and_before():
+    from icli.cli.options import GlobalOptions
+
+    _, ns, _, _ = parse(["--read-only", "exec", "x.i64", "-c", "1"])
+    assert GlobalOptions.from_namespace(ns).read_only

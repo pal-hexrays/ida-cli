@@ -135,6 +135,7 @@ class Invocation:
     produced: list[dict] = field(default_factory=list)
     _owns_session: bool = False
     target_spec: str | None = None
+    chain_save: bool | None = None   # set by do/batch: save only if every step succeeded
 
     # -- positionals ---------------------------------------------------------------
 
@@ -182,8 +183,15 @@ class Invocation:
             return self.session
         if self.target_spec is None:
             self.positionals()
-        from .opening import open_session
+        from .opening import open_session, resolve_target
+        from .serve import SERVED
 
+        if SERVED and self.target_spec is not None:
+            # inside icli serve: reuse the session the server holds
+            db = resolve_target(self.target_spec, self.g).db
+            if str(db) in SERVED:
+                self.session = SERVED[str(db)]
+                return self.session
         self.session = open_session(self.target_spec, self.g, self.emitter.diag)
         self._owns_session = True
         return self.session
@@ -231,7 +239,7 @@ class Invocation:
 
     def close(self, ok: bool) -> None:
         if self._owns_session and self.session is not None:
-            self.session.close(save=ok)
+            self.session.close(save=ok if self.chain_save is None else ok and self.chain_save)
             self.session = None
 
 

@@ -40,7 +40,8 @@ def _predicate(text: str | None) -> str | None:
     from ..lang import expr
 
     tree = expr.parse(text)
-    simple = {"size": "f.size", "name": "db.functions.get_name(f)", "ea": "f.start_ea",
+    # ida-domain hands out func_t objects: size() is a method
+    simple = {"size": "f.size()", "name": "db.functions.get_name(f)", "ea": "f.start_ea",
               "end": "f.end_ea"}
 
     def emit(node: Any) -> str | None:
@@ -73,7 +74,7 @@ def show_code(op: str, params: dict) -> str:
             if cond:
                 lines.append(f"{indent}if {cond}:")
                 indent += "    "
-            lines.append(f'{indent}yield {{"ea": f.start_ea, "name": db.functions.get_name(f), "size": f.size}}')
+            lines.append(f'{indent}yield {{"ea": f.start_ea, "name": db.functions.get_name(f), "size": f.size()}}')
             return "\n".join(lines) + "\n"
     if op == "decompile":
         src = _sel_expr(sel)

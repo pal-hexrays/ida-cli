@@ -77,8 +77,12 @@ def split_target(items: list[str], *, minimum_rest: int = 0) -> tuple[str | None
     return items[0], items[1:]
 
 
-def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache: bool = False) -> Target:
-    """Resolve a target specification to input and database paths."""
+def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache: bool = False,
+            create: bool = True) -> Target:
+    """Resolve a target specification to input and database paths.
+
+    ``create=False`` computes the cache path without creating directories
+    or index entries (``db path``, ``cache key``)."""
     original = spec
     if spec == "@":
         last = cache.last_target()
@@ -94,7 +98,7 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
         from .vault import checkout
 
         local = checkout(spec)
-        t = resolve(str(local), load, db=db, no_cache=no_cache)
+        t = resolve(str(local), load, db=db, no_cache=no_cache, create=create)
         t.vault = spec
         t.spec = original
         return t
@@ -134,8 +138,9 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
         return Target(original, p, tmp / (p.name + ".i64"), None, load, temporary=True)
     key = cache.cache_key(sha, load)
     dbp = cache.db_path_for(key)
-    cache.ensure_dir(dbp.parent)
-    cache.record(key, p, sha, load, dbp)
+    if create:
+        cache.ensure_dir(dbp.parent)
+        cache.record(key, p, sha, load, dbp)
     return Target(original, p, dbp, key, load)
 
 

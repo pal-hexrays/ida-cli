@@ -1,3 +1,3 @@
 """Engine operations; importing this package registers all of them."""
 
-from . import analysis, decompile, edit, edit_code, graph, inspect, journal_ops, query, search, triage  # noqa: F401  (registration)
+from . import analysis, automation, decompile, edit, edit_code, graph, inspect, journal_ops, query, search, triage  # noqa: F401  (registration)

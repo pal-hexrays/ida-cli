@@ -9,6 +9,9 @@ requires-python = ">=3.12"
 dependencies = [
     "ida-domain>=0.5.1",
     "ida-nexus>=0.13.4",
+    "lief>=1.0.0",
+    "ppdeep>=20260221",
+    "py-tlsh>=5.0.0",
 ]
 
 [project.scripts]

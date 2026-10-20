@@ -73,7 +73,7 @@ def _invert(ctx: Ctx, rec: dict) -> list[dict]:
     if kind == "exec":
         out = []
         for sub in reversed(rec.get("changes", [])):
-            out.extend(_invert(ctx, sub))
+            out.extend(_invert(ctx, {**sub, "rev": rec.get("rev")}))
         return out
     if kind == "switch":
         ea = _ea(rec)

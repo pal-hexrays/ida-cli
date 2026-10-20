@@ -342,8 +342,9 @@ class Make(Edit):
         super().configure(p)
         p.add_argument("--count", type=int, metavar="N")
         p.add_argument("--type", metavar="NAME", help="struct type, or array element kind")
-        p.add_argument("--base", metavar="ADDR")
-        p.add_argument("--encoding", metavar="NAME")
+        # private destinations: --base/--encoding are also load options
+        p.add_argument("--base", dest="make_base", metavar="ADDR")
+        p.add_argument("--encoding", dest="make_encoding", metavar="NAME")
         p.add_argument("--size", type=int, metavar="N")
         p.add_argument("--jumptable", metavar="table=ADDR,count=N[,elsize=..][,base=..][,default=..]")
 
@@ -353,8 +354,8 @@ class Make(Edit):
         if not rest:
             raise usage("icli make: expected selector(s)")
         return self.call(inv, "make", {"kind": a.kind, "selectors": inv.selectors(rest), "count": a.count,
-                                       "type": a.type, "base": parse_int(a.base) if a.base else None,
-                                       "encoding": a.encoding, "size": a.size, "jumptable": a.jumptable})
+                                       "type": a.type, "base": parse_int(a.make_base) if a.make_base else None,
+                                       "encoding": a.make_encoding, "size": a.size, "jumptable": a.jumptable})
 
 
 @register

@@ -58,6 +58,7 @@ def call(db: Any, request: str) -> dict:
             "warnings": ctx.warnings,
             "status": ctx.status,
             "raw": ctx.raw,
+            "extra": render(ctx.extra),
         }
     except IdaxError as error:
         return {"error": error.to_dict(), "warnings": ctx.warnings}

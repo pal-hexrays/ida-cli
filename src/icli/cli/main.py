@@ -144,6 +144,27 @@ def _optional_values(cmd: Command, rest: list[str]) -> list[str]:
     return out
 
 
+NO_FORWARD = {"serve", "db", "cache"}
+
+
+def _forward_if_served(cmd: Command, ns: argparse.Namespace, inv: Invocation, g: GlobalOptions,
+                       argv: list[str]) -> int | None:
+    """Run the command in an ``icli serve`` process holding its target."""
+    if cmd.target == "none" or cmd.name in NO_FORWARD:
+        return None
+    from .serve import maybe_forward
+
+    try:
+        if cmd.name in ("do", "batch"):
+            spec = ns.items[0] if ns.items else None
+        else:
+            inv.positionals()
+            spec = inv.target_spec
+    except IdaxError:
+        return None  # the command itself will report the usage error
+    return maybe_forward(spec, g, argv)
+
+
 def general_help() -> str:
     load_commands()
     lines = ["usage: icli [global-options] command [command-options] [target] [selector...]", "",
@@ -177,6 +198,10 @@ def version_text() -> str:
         info = edition_info()
         lines.append(f"edition {info['edition']}")
         lines.append("decompilers " + (", ".join(info["decompilers"]) or "none"))
+        if info["cloud_decompilers"]:
+            lines.append("cloud decompilers " + ", ".join(info["cloud_decompilers"]))
+        if info["features"]:
+            lines.append("features " + ", ".join(info["features"]))
     except Exception as error:  # noqa: BLE001 - --version must not fail
         lines.append(f"edition unknown ({error})")
     return "\n".join(lines) + "\n"
@@ -195,6 +220,9 @@ def run(argv: list[str]) -> int:
         raise usage("empty template")
     emitter = Emitter(g.output, raw_field=cmd.raw_field)
     inv = Invocation(cmd, ns, g, emitter, argv=tail, passthrough=passthrough)
+    forwarded = _forward_if_served(cmd, ns, inv, g, argv)
+    if forwarded is not None:
+        return forwarded
     # The database (analysis included) is saved unless the failure means its
     # state is suspect: internal errors, script errors, interrupts.
     save = True

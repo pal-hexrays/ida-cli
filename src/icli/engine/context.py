@@ -60,6 +60,7 @@ class Ctx:
     status: int = 0
     raw: list[str] = field(default_factory=list)
     changes: int = 0
+    extra: dict = field(default_factory=dict)   # op-specific response fields (exec stdout/stderr)
 
     def warn(self, code: str, msg: str) -> None:
         """Record a warning; under --strict a warning is an error."""

@@ -70,6 +70,8 @@ class Emitter:
     raw_field: str | None = None
     schema: str | None = None
     database: dict | None = None
+    tag: dict | None = None      # fields merged into every record (batch: {"step": n})
+    extra: dict | None = None    # top-level fields of the -f json document
 
     def __post_init__(self) -> None:
         self.format = self.opts.format or default_format(self.out)
@@ -113,6 +115,8 @@ class Emitter:
     def emit(self, records: list[dict]) -> None:
         for rec in records:
             self.count += 1
+            if self.tag:
+                rec = {**rec, **self.tag}
             rec = self._project(rec)
             if self._template is not None:
                 self._write_header()
@@ -202,6 +206,8 @@ class Emitter:
                 doc["database"] = self.database
             doc["records"] = self._buffer
             doc["warnings"] = self._warnings
+            if self.extra:
+                doc.update(self.extra)
             self.out.write(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
         elif self.format == "text":
             self._write_text(self._buffer)
@@ -215,12 +221,19 @@ class Emitter:
         if not records:
             return
         color = self._color()
-        if len(records) == 1 and len(records[0]) > 6:
-            flat = _flatten({k: v for k, v in records[0].items() if k != "_t"})
-            width = max(len(k) for k in flat)
-            for k, v in flat.items():
-                key = f"\x1b[1m{k:<{width}}\x1b[0m" if color else f"{k:<{width}}"
-                self.out.write(f"{key}  {_cell(v)}{self.end}")
+
+        def wide(rec: dict) -> bool:
+            return len(rec) > 9 or any(isinstance(v, list) and v and isinstance(v[0], dict) for v in rec.values())
+
+        if (len(records) == 1 and len(records[0]) > 6) or any(wide(r) for r in records):
+            for i, rec in enumerate(records):
+                if i:
+                    self.out.write(self.end)
+                flat = _flatten({k: v for k, v in rec.items() if k != "_t"})
+                width = max(len(k) for k in flat) if flat else 0
+                for k, v in flat.items():
+                    key = f"\x1b[1m{k:<{width}}\x1b[0m" if color else f"{k:<{width}}"
+                    self.out.write(f"{key}  {_cell(v)}{self.end}")
             return
         # group consecutive records with the same shape
         groups: list[list[dict]] = []

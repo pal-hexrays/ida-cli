@@ -125,7 +125,9 @@ class Session:
         s = self.spec
         options = DatabaseOpenOptions(
             output_database=str(db) if t.input is not None else None,
-            auto_analysis=self.opts.analysis != "none" and not s.post_load,
+            # Analysis starts when a command first needs it (ensure), so that
+            # earlier steps of a chain can influence it.
+            auto_analysis=False,
             startup_timeout=600.0,
             keepalive=self.opts.keepalive,
             processor=s.processor if self.fresh else None,
