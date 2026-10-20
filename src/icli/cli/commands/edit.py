@@ -143,7 +143,7 @@ class Tag(Edit):
     def configure(self, p: argparse.ArgumentParser) -> None:
         super().configure(p)
         p.add_argument("--remove", action="store_true")
-        p.add_argument("--color", metavar="RRGGBB")
+        p.add_argument("--color", dest="tag_color", metavar="RRGGBB")
 
     def run(self, inv: Invocation) -> int:
         a = inv.args
@@ -151,12 +151,12 @@ class Tag(Edit):
         if not rest:
             raise usage("icli tag: expected a selector and tag(s)")
         sel, tags = rest[0], rest[1:]
-        if not tags and not a.color and not a.remove:
+        if not tags and not a.tag_color and not a.remove:
             raise usage("icli tag: expected tag(s) or --color")
-        if a.color and not re.fullmatch(r"[0-9a-fA-F]{6}", a.color):
-            raise usage(f"--color {a.color}: expected rrggbb")
+        if a.tag_color and not re.fullmatch(r"[0-9a-fA-F]{6}", a.tag_color):
+            raise usage(f"--color {a.tag_color}: expected rrggbb")
         return self.call(inv, "tag", {"selectors": inv.selectors([sel]), "tags": tags, "remove": a.remove,
-                                      "color": a.color})
+                                      "color": a.tag_color})
 
 
 @register
