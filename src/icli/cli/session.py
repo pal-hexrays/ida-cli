@@ -242,9 +242,14 @@ class Session:
     def state(self) -> str:
         return self.call("lifecycle.state", {}, need="loaded")["records"][0]["state"]
 
-    def ensure(self, need: str) -> None:
-        """Bring the database to the lifecycle state a command needs."""
-        if need in (None, "none", "loaded") or self._ready:
+    def ensure(self, need: str, *, force: bool = False) -> None:
+        """Bring the database to the lifecycle state a command needs.
+        ``force`` drains analysis queued since (analyze --reanalyze)."""
+        if need in (None, "none", "loaded") or (self._ready and not force):
+            return
+        if force and self.opts.analysis != "none":
+            self._wait()
+            self._ready = not self.partial
             return
         poll = self.handle.poll_autoanalysis()
         if poll.get("complete"):

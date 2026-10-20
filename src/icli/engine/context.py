@@ -65,7 +65,7 @@ class Ctx:
     def warn(self, code: str, msg: str) -> None:
         """Record a warning; under --strict a warning is an error."""
         if self.opts.strict:
-            raise IdaxError(Exit.NEGATIVE if code == "NOMATCH" else Exit.USAGE, msg, code)
+            raise IdaxError(Exit.EMPTY_SELECTION if code == "NOMATCH" else Exit.USAGE, msg, code)
         self.warnings.append({"_t": "diag", "level": "warning", "code": code, "msg": msg})
 
     def set_status(self, status: int) -> None:

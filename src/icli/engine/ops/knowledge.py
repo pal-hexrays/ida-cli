@@ -413,8 +413,10 @@ def load(ctx: Ctx, kind: str, path: str | None = None, at: int | None = None, te
     if kind == "idc":
         import ida_expr
 
-        if not ida_expr.exec_idc_script(None, path, "main", None, 0):
-            raise IdaxError(Exit.SCRIPT, f"{path}: IDC script failed", "SCRIPT")
+        # exec_idc_script stays silent about compile errors: compile first
+        err = ida_expr.compile_idc_file(path) or ida_expr.exec_idc_script(None, path, "main", None, 0)
+        if err:
+            raise IdaxError(Exit.SCRIPT, f"{path}: IDC script failed: {err}", "SCRIPT")
         return [{"_t": "load", "kind": "idc", "path": path}]
     if kind in ("names", "map"):
         out = []

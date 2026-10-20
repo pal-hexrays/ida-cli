@@ -366,3 +366,65 @@ def test_legacy_idb_upgrade(icli, tmp_path, src):
     other = tmp_path / "again.idb"
     shutil.copy(src, other)
     assert icli("list", "functions", "--count", str(other)).code == 0          # upgraded on first use
+
+
+# -- regressions found by the full command/option matrix ------------------------------------------
+
+def test_output_colliding_with_database_component_is_refused(icli, tmp_path):
+    g = ["--db", str(tmp_path / "a.i64")]
+    assert icli(*g, "til", "export", "sample.o", "-o", str(tmp_path / "a.til")).code == 2
+    assert icli(*g, "export", "h", "-o", str(tmp_path / "a.nam"), "sample.o").code == 2
+    assert icli(*g, "til", "export", "sample.o", "-o", str(tmp_path / "ok.til")).code == 0
+    assert (tmp_path / "ok.til").exists()
+
+
+def test_load_idc_and_missing_til(icli, tmp_path):
+    g = ["--db", str(tmp_path / "i.i64")]
+    script = tmp_path / "n.idc"
+    script.write_text('static main() { set_name(0x170, "named_by_idc"); }\n')
+    assert icli(*g, "load", "idc", "sample.o", str(script)).code == 0
+    assert icli(*g, "resolve", "sample.o", "named_by_idc").code == 0
+    bad = tmp_path / "bad.idc"
+    bad.write_text("static main() { this is not idc }\n")
+    assert icli(*g, "load", "idc", "sample.o", str(bad)).code == 16
+    assert icli("til", "dump", str(tmp_path / "missing.til")).code == 4
+
+
+def test_strict_empty_selector_is_5_and_syntax(icli):
+    assert icli("--strict", "list", "functions", "sample.o", "func:nothing_here").code == 5
+    plain = icli("-f", "raw", "disasm", "sample.o", "substitute").out
+    tasm = icli("-f", "raw", "disasm", "--syntax", "tasm", "sample.o", "substitute").out
+    assert plain != tasm and "[ds:aes_sbox+rax]" in tasm
+    assert icli("disasm", "--syntax", "klingon", "sample.o", "main").code == 2
+
+
+def test_reanalyze_leaves_database_analyzed(icli, tmp_path):
+    g = ["--db", str(tmp_path / "r.i64")]
+    assert icli(*g, "analyze", "--reanalyze", "sample.o").code == 0
+    assert icli(*g, "status", "sample.o").record["state"] == "analyzed"
+
+
+def test_jumptable_propagate_and_tcp_serve(icli, tmp_path, workdir):
+    g = ["--db", str(tmp_path / "j.i64")]
+    r = icli(*g, "make", "code", "sample.o", "0x18", "--jumptable", "table=0x1a0,count=7,elsize=8")
+    assert r.code == 0 and r.record["kind"] == "switch"
+    r = icli(*g, "type", "set", "--propagate", "sample.o", "substitute", "int __fastcall substitute(unsigned char b)")
+    assert any(x["_t"] == "propagate" for x in r.records)
+    src = tmp_path / "tcp.o"
+    shutil.copy(FIXTURES / "sample.o", src)
+    tok = tmp_path / "tok"
+    tok.write_text("s3cret-token")
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    assert icli("serve", "--detach", "--listen", f"127.0.0.1:{port}", "--token-file", str(tok), str(src)).code == 0
+    try:
+        env = {"ICLI_SOCKET": f"tcp://127.0.0.1:{port}", "ICLI_TOKEN_FILE": str(tok)}
+        assert icli("list", "functions", "--count", str(src), env=env).record["count"] > 0
+        bad = {"ICLI_SOCKET": f"tcp://127.0.0.1:{port}", "ICLI_TOKEN": "wrong"}
+        assert icli("list", "functions", "--count", str(src), env=bad).code == 2
+        assert icli("serve", "--listen", "127.0.0.1:9", str(src)).code in (2, 11)   # token file required
+    finally:
+        icli("serve", "--stop", str(src))

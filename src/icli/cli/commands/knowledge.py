@@ -268,6 +268,15 @@ class Sig(Edit):
 # -- type libraries ---------------------------------------------------------------------------------
 
 
+def _load_til(name: str) -> Any:
+    import ida_typeinf
+
+    try:
+        return ida_typeinf.load_til(name)
+    except RuntimeError as error:
+        raise IdaxError(Exit.NOT_FOUND, f"{name}: {error}", "NOTFOUND")
+
+
 def store_til(til: Any, path: Path) -> bool:
     """Write a type library; the kernel honours only an absolute file name
     with no directory argument."""
@@ -317,6 +326,7 @@ class Til(Command):
         if sub == "export":
             inv.positionals(0)
             out = Path(a.output).expanduser().resolve()
+            inv.check_output(out)
             inv.call("til.export", {"path": str(out)})
             return 0
         from .. import local
@@ -331,8 +341,8 @@ class Til(Command):
         if sub == "dump":
             if not a.items:
                 raise usage("icli til dump: expected FILE.til [name...]")
-            path = _need_file(a.items[0]) if Path(a.items[0]).exists() else a.items[0]
-            til = ida_typeinf.load_til(str(path))
+            path = _need_file(a.items[0]) if ("/" in a.items[0] or a.items[0].endswith(".til")) else a.items[0]
+            til = _load_til(str(path))
             if til is None:
                 raise IdaxError(Exit.NOT_FOUND, f"{a.items[0]}: cannot load type library", "NOTFOUND")
             names = a.items[1:] or list(til.type_names)
@@ -383,7 +393,7 @@ class Til(Command):
             ida_typeinf.enable_numbered_types(merged, True)  # copy_named_type needs ordinals
             count = 0
             for x in a.items:
-                src = ida_typeinf.load_til(str(_need_file(x)))
+                src = _load_til(str(_need_file(x)))
                 if src is None:
                     raise IdaxError(Exit.NOT_FOUND, f"{x}: cannot load type library", "NOTFOUND")
                 for n in src.type_names:

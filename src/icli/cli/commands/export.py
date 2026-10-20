@@ -58,6 +58,8 @@ class Export(Command):
         if per_item and fmt not in ("c", "cpp", "mc", "asm", "lst", "html"):
             raise usage(f"export {fmt}: per-item -o templates are not supported for this format")
         sels = inv.selectors(rest) if rest else None
+        if out and not per_item:
+            inv.check_output(Path(out).expanduser())
         if fmt == "sqlite":
             return self._sqlite(inv, out, sels)
         if fmt == "i64":

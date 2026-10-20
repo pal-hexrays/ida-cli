@@ -196,6 +196,15 @@ class Invocation:
         self._owns_session = True
         return self.session
 
+    def check_output(self, path: Path) -> None:
+        """Refuse output paths that are components of the open database:
+        the worker packs and deletes those when it closes."""
+        db = self.open().target.db
+        components = {db.with_suffix(s).resolve() for s in (".i64", ".idb", ".id0", ".id1", ".id2", ".nam",
+                                                            ".til")}
+        if path.resolve() in components:
+            raise usage(f"{path}: is a component of the database {db.name}; choose another output path")
+
     def engine_ctx(self, **extra: Any) -> dict:
         from .env import author
 

@@ -167,11 +167,15 @@ def prefix(ea: int, style: str) -> str:
 
 
 def assemblers() -> list[str]:
-    try:
-        ph = ida_idp.get_ph()
-        return [a.name for a in ph.assemblers] if hasattr(ph, "assemblers") else []
-    except Exception:
-        return []
+    """Assembler dialects of the current processor module, by number."""
+    current = ida_ida.inf_get_asmtype()
+    names: list[str] = []
+    for i in range(16):
+        if not ida_idp.set_target_assembler(i):
+            break
+        names.append(ida_idp.get_ash().name or f"asm{i}")
+    ida_idp.set_target_assembler(current)
+    return names
 
 
 class syntax:
@@ -196,12 +200,12 @@ class syntax:
             raise IdaxError(Exit.USAGE, f"--syntax {self.name}: not offered by this processor "
                             f"(available: {', '.join(assemblers()) or 'none'})", "USAGE")
         self.old = ida_ida.inf_get_asmtype()
-        ida_ida.inf_set_asmtype(idx)
+        ida_idp.set_target_assembler(idx)
         return self
 
     def __exit__(self, *exc: object) -> None:
         if self.old is not None:
-            ida_ida.inf_set_asmtype(self.old)
+            ida_idp.set_target_assembler(self.old)
 
 
 def heads_in(start: int, end: int) -> Iterator[int]:

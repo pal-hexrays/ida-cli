@@ -70,7 +70,9 @@ class Analyze(Command):
         if a.progress:
             sys.stderr.write(json.dumps({"_t": "progress", "queue": "all", "pct": 0}) + "\n")
         inv.call("analyze.prepare", pre, need="loaded", emit=False)
-        session.ensure("analyzed")
+        # queued work (reanalysis, ranges, signatures) must be drained, even
+        # if the initial analysis had already completed
+        session.ensure("analyzed", force=bool(a.reanalyze or rest or a.sig or a.til or without))
         if session.partial:
             inv.set_status(Exit.PARTIAL)
         res_records = []
