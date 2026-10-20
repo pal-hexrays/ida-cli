@@ -224,17 +224,9 @@ class Lvars(Kind):
         return bool(lv.has_user_name or lv.has_user_type)
 
     def f_storage(self, it: Item, ctx: Ctx) -> str:
-        lv = it.obj["lv"]
-        if lv.is_stk_var():
-            return f"stack:{lv.get_stkoff():#x}"
-        if lv.is_reg_var():
-            import ida_hexrays
+        from ..decomp import lvar_storage
 
-            try:
-                return "reg:" + ida_hexrays.get_mreg_name(lv.get_reg1(), lv.width)
-            except Exception:
-                return f"reg:{lv.get_reg1()}"
-        return "other"
+        return lvar_storage(it.obj["lv"])
 
     def f_comment(self, it: Item, ctx: Ctx) -> str | None:
         return it.obj["lv"].cmt or None

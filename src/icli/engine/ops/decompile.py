@@ -56,17 +56,6 @@ def lines_for(cf: Any, ea: int) -> list[int]:
     return [best] if best is not None else []
 
 
-def lvar_storage(lv: Any) -> str:
-    if lv.is_stk_var():
-        return f"stack:{lv.get_stkoff():#x}"
-    if lv.is_reg_var():
-        try:
-            return "reg:" + ida_hexrays.get_mreg_name(lv.get_reg1(), lv.width)
-        except Exception:
-            return f"reg:{lv.get_reg1()}"
-    return "other"
-
-
 def ctree(cf: Any) -> dict:
     """The ctree as nested JSON: node (op name), ea, type, children."""
     nodes: dict[int, dict] = {}
@@ -155,7 +144,7 @@ def decompile_record(ctx: Ctx, ea: int, *, fresh: bool = False, line_map: bool =
         mapping = line_addresses(r.cfunc)
         rec["lines"] = [{"line": i + 1, "text": t, "addresses": [A(x) for x in eas]}
                         for i, (t, eas) in enumerate(zip(text.split("\n"), mapping))]
-        rec["lvars"] = [{"name": lv.name, "type": str(lv.type()), "storage": lvar_storage(lv),
+        rec["lvars"] = [{"name": lv.name, "type": str(lv.type()), "storage": decomp.lvar_storage(lv),
                          "arg": bool(lv.is_arg_var)} for lv in r.cfunc.get_lvars()]
     if with_ctree:
         rec["ctree"] = ctree(r.cfunc)

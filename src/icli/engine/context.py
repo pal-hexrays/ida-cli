@@ -59,6 +59,7 @@ class Ctx:
     warnings: list[dict] = field(default_factory=list)
     status: int = 0
     raw: list[str] = field(default_factory=list)
+    changes: int = 0
 
     def warn(self, code: str, msg: str) -> None:
         """Record a warning; under --strict a warning is an error."""

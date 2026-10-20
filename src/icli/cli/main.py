@@ -195,14 +195,21 @@ def run(argv: list[str]) -> int:
         raise usage("empty template")
     emitter = Emitter(g.output, raw_field=cmd.raw_field)
     inv = Invocation(cmd, ns, g, emitter, argv=tail, passthrough=passthrough)
-    ok = False
+    # The database (analysis included) is saved unless the failure means its
+    # state is suspect: internal errors, script errors, interrupts.
+    save = True
     try:
         status = cmd.run(inv) or 0
-        ok = status in (0, 1, 3)
         return combine(status, inv.status)
+    except IdaxError as error:
+        save = error.status not in (Exit.INTERNAL, Exit.SCRIPT, Exit.INTERRUPTED)
+        raise
+    except BaseException:
+        save = False
+        raise
     finally:
         try:
-            inv.close(ok)
+            inv.close(save)
         finally:
             emitter.close()
 

@@ -152,3 +152,17 @@ def microcode(ea: int, maturity: str = "lvars") -> str:
     p = _Printer()
     mba._print(p)
     return "\n".join(p.lines)
+
+
+def lvar_storage(lv: Any) -> str:
+    """``stack:0x10`` or ``reg:edi`` for a decompiler local variable."""
+    import ida_hexrays
+
+    if lv.is_stk_var():
+        return f"stack:{lv.get_stkoff():#x}"
+    if lv.is_reg_var():
+        try:
+            return "reg:" + ida_hexrays.get_mreg_name(lv.get_reg1(), lv.width)
+        except Exception:
+            return f"reg:{lv.get_reg1()}"
+    return "other"

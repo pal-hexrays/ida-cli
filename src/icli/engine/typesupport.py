@@ -78,6 +78,14 @@ def parse_decl(decl: str, *, function: bool = False) -> tuple[ida_typeinf.tinfo_
     return tif, name or ""
 
 
+def parse_type(text: str) -> ida_typeinf.tinfo_t:
+    """Parse a bare type ("unsigned int *", "pkt_t *") or a declaration."""
+    try:
+        return parse_decl(text)[0]
+    except IdaxError:
+        return parse_decl(f"{text.strip().rstrip(';')} __icli_tmp")[0]
+
+
 def apply_decl(ea: int, decl: str) -> bool:
     is_func = (f := ida_funcs.get_func(ea)) is not None and f.start_ea == ea
     tif, _ = parse_decl(decl)
