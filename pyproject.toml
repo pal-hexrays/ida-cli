@@ -23,3 +23,15 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+
+[tool.pyright]
+# IDAPython modules are importable only inside IDA (engine code runs there).
+extraPaths = ["/Applications/IDA Professional 9.5.app/Contents/MacOS/python"]
+reportMissingModuleSource = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["ida: needs a working IDA installation (spawns idalib workers)"]
+
+[tool.ruff]
+line-length = 110
