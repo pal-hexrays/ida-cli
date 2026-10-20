@@ -333,11 +333,13 @@ def _get_local_type(ea: Any, key: str) -> str | None:
 
 
 def _set_local_type(ea: Any, key: str, value: Any, opts: dict) -> None:
+    """Define, redefine (in place, keeping the ordinal so references stay
+    valid) or delete a local type."""
     til = ida_typeinf.get_idati()
-    if typesupport.find_local(key) is not None:
-        if not ida_typeinf.del_named_type(til, key, ida_typeinf.NTF_TYPE):
-            raise _fail(f"cannot replace local type {key!r}")
     if not value:
+        if typesupport.find_local(key) is not None and not ida_typeinf.del_named_type(
+                til, key, ida_typeinf.NTF_TYPE):
+            raise _fail(f"cannot delete local type {key!r}")
         return
     if ida_typeinf.parse_decls(til, value, None, ida_typeinf.HTI_DCL) != 0:
         raise IdaxError(Exit.USAGE, f"cannot parse definition of {key!r}", "BADDECL")
@@ -378,9 +380,16 @@ def change(ctx: Ctx, kind: str, ea: int | None, key: Any, value: Any, *, force: 
         return base
     ctx.require_writable()
     h.set(ea, key, value, opts)
+    return record_change(ctx, base, kind=journal_kind or kind, ea=ea, key=key, before=before, after=value,
+                         opts=opts)
+
+
+def record_change(ctx: Ctx, base: dict, *, kind: str, ea: int | None, key: Any, before: Any, after: Any,
+                  opts: dict | None = None) -> dict:
+    """Journal a change that has been made; returns the edit record."""
     entry = journal.append({
-        "kind": journal_kind or kind, "ea": f"{ea:#x}" if isinstance(ea, int) else None, "key": key,
-        "before": before, "after": value, "author": ctx.opts.author, "command": ctx.opts.command,
+        "kind": kind, "ea": f"{ea:#x}" if isinstance(ea, int) else None, "key": key,
+        "before": before, "after": after, "author": ctx.opts.author, "command": ctx.opts.command,
         "message": ctx.opts.message or None, **({"opts": opts} if opts else {}),
         **(location(ea) if isinstance(ea, int) else {}),
     })

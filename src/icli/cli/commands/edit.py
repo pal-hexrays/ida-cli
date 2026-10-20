@@ -138,6 +138,7 @@ class Tag(Edit):
     group = "edit"
     summary = "attach free-form tags (and a background colour) to items"
     rest_min = 1
+    overrides = frozenset({"--color"})
 
     def configure(self, p: argparse.ArgumentParser) -> None:
         super().configure(p)

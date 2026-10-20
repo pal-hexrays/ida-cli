@@ -23,8 +23,17 @@ def _append(p: argparse.ArgumentParser, *names: str, **kw: Any) -> None:
     p.add_argument(*names, action="append", default=S, **kw)
 
 
-def add_global_options(p: argparse.ArgumentParser) -> None:
-    g = p.add_argument_group("global options")
+def add_global_options(p: argparse.ArgumentParser, skip: frozenset[str] = frozenset()) -> None:
+    """``skip``: option strings a command redefines (``tag --color RRGGBB``)."""
+    group = p.add_argument_group("global options")
+
+    class _G:
+        @staticmethod
+        def add_argument(*names: str, **kw: Any) -> None:
+            if not skip.intersection(names):
+                group.add_argument(*names, **kw)
+
+    g = _G()
     g.add_argument("--db", metavar="PATH", default=S, help="use or create the database at PATH")
     g.add_argument("--no-cache", action="store_true", default=S, help="analyse into a temporary database")
     g.add_argument("--read-only", action="store_true", default=S, help="open read-only; edits exit 13")
@@ -43,8 +52,8 @@ def add_global_options(p: argparse.ArgumentParser) -> None:
     g.add_argument("-q", "--quiet", action="store_true", default=S)
     g.add_argument("-v", "--verbose", action="count", default=S)
     g.add_argument("--log", metavar="FILE", default=S)
-    _append(g, "--set", metavar="KEY=VALUE")
-    _append(g, "--plugin-opt", metavar="NAME:OPTION")
+    g.add_argument("--set", metavar="KEY=VALUE", action="append", default=S)
+    g.add_argument("--plugin-opt", metavar="NAME:OPTION", action="append", default=S)
     g.add_argument("-j", "--jobs", type=int, metavar="N", default=S)
     g.add_argument("-C", dest="chdir", metavar="DIR", default=S)
     g.add_argument("--no-server", action="store_true", default=S)

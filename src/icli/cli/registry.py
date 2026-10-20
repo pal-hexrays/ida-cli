@@ -52,6 +52,8 @@ class Command:
     edits: ClassVar[bool] = False
     passthrough: ClassVar[bool] = False     # keep tokens after "--"
     subcommands: ClassVar[dict[str, str]] = {}
+    # global option strings this command redefines for itself
+    overrides: ClassVar[frozenset[str]] = frozenset()
     # options whose value is optional ("--bytes [N]"): flag -> (default, accepts(token))
     optional_values: ClassVar[dict[str, tuple[str, Callable[[str], bool]]]] = {}
 

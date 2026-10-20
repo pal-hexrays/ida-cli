@@ -66,7 +66,7 @@ def command_parser(cmd: Command, sub: str | None = None) -> _Parser:
         cmd.configure(p)
     else:
         cmd.configure_sub(sub, p)
-    add_global_options(p)
+    add_global_options(p, cmd.overrides)
     if cmd.target != "none":
         add_load_options(p)
     return p

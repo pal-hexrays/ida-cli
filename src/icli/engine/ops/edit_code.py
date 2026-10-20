@@ -92,60 +92,65 @@ def type_get(ctx: Ctx, selectors: list[dict]) -> list[dict]:
     return out
 
 
-def _scratch_til() -> Any:
-    """A full copy of the local types (with their base libraries), so new
-    declarations can be parsed and compared without touching the database."""
-    import os
-    import tempfile
-
-    d = tempfile.mkdtemp(prefix="icli-til-")
-    if not ida_typeinf.store_til(ida_typeinf.get_idati(), d, "scratch.til"):
-        raise IdaxError(Exit.INTERNAL, "cannot snapshot local types", "INTERR")
-    til = ida_typeinf.load_til(os.path.join(d, "scratch.til"))
-    if til is None:
-        raise IdaxError(Exit.INTERNAL, "cannot reload local types snapshot", "INTERR")
-    return til
+def _local_definitions() -> dict[str, str]:
+    return {name: typesupport.type_definition(tif, name) for _, name, tif in typesupport.local_types()}
 
 
-def _parse_into_temp(text: str, parser: str, args: list[str]) -> list[tuple[str, str]]:
-    """Parse declarations against a scratch copy of the local types; returns
-    (name, definition) of every type the text declares, in ordinal order."""
-    tmp = _scratch_til()
-    before = ida_typeinf.get_ordinal_limit(tmp)
+def _parse(text: str, parser: str, args: list[str]) -> int:
+    til = ida_typeinf.get_idati()
     if parser == "clang":
         import ida_srclang
 
         ida_srclang.set_parser_argv("clang", " ".join(args))
-        errors = ida_srclang.parse_decls_with_parser("clang", tmp, text, False)
-        if errors < 0:  # no clang parser in this installation
-            errors = ida_typeinf.parse_decls(tmp, text, None, ida_typeinf.HTI_DCL)
-    else:
-        errors = ida_typeinf.parse_decls(tmp, text, None, ida_typeinf.HTI_DCL)
-    if errors:
-        ida_typeinf.free_til(tmp)
-        raise IdaxError(Exit.USAGE, f"{errors} error(s) parsing declarations", "BADDECL")
-    declared = set(re.findall(r"\b(?:struct|union|enum|typedef)\b[^;{]*?\b([A-Za-z_]\w*)\s*(?:[{;]|$)", text))
-    declared |= set(re.findall(r"\}\s*([A-Za-z_]\w*)\s*;", text))
-    out = []
-    for ordinal in range(1, ida_typeinf.get_ordinal_limit(tmp)):
-        tif = ida_typeinf.tinfo_t()
-        if not tif.get_numbered_type(tmp, ordinal):
-            continue
-        name = tif.get_type_name()
-        if name and (ordinal >= before or name in declared):
-            out.append((name, typesupport.type_definition(tif, name)))
-    ida_typeinf.free_til(tmp)
-    return out
+        errors = ida_srclang.parse_decls_with_parser("clang", til, text, False)
+        if errors >= 0:
+            return errors
+    return ida_typeinf.parse_decls(til, text, None, ida_typeinf.HTI_DCL)
 
 
 @op("type.add")
 def type_add(ctx: Ctx, text: str, parser: str = "clang", args: list[str] | None = None,
              replace: bool = False) -> list[dict]:
-    defs = _parse_into_temp(text, parser, args or [])
-    if not defs:
+    """Parse declarations into the local types.  Identical types are left
+    alone; a differing definition is a conflict (9) unless --replace."""
+    ctx.require_writable()
+    before = _local_definitions()
+    errors = _parse(text, parser, args or [])
+    after = _local_definitions()
+    changed = [n for n, d in after.items() if before.get(n) != d]
+
+    def rollback() -> None:
+        for n in changed:
+            edits.HANDLERS["local_type"].set(None, n, before.get(n), {})
+
+    if errors:
+        rollback()
+        raise IdaxError(Exit.USAGE, f"{errors} error(s) parsing declarations", "BADDECL")
+    conflicts = [n for n in changed if n in before]
+    if (conflicts and not (replace or ctx.opts.force)) or ctx.opts.dry_run:
+        rollback()
+        if conflicts and not (replace or ctx.opts.force):
+            raise IdaxError(Exit.CONFLICT, f"conflicting definition of {', '.join(conflicts)} "
+                            "(use --replace)", "CONFLICT")
+    out = []
+    for n in changed:
+        base = {"_t": "edit", "kind": "local_type", "ea": None, "key": n, "before": before.get(n),
+                "after": after[n], "name": n}
+        if ctx.opts.dry_run:
+            base["status"] = "would-change"
+            ctx.changes += 1
+            out.append(base)
+        else:
+            out.append(edits.record_change(ctx, base, kind="local_type", ea=None, key=n, before=before.get(n),
+                                           after=after[n]))
+    declared = set(re.findall(r"\b(?:struct|union|enum)\s+([A-Za-z_]\w*)", text)) | \
+        set(re.findall(r"([A-Za-z_]\w*)\s*;\s*$", text, re.M))
+    for n in sorted(declared - set(changed)):
+        if n in after:
+            out.append({"_t": "edit", "kind": "local_type", "ea": None, "key": n, "before": after[n],
+                        "after": after[n], "name": n, "status": "unchanged"})
+    if not out:
         ctx.warn("NOMATCH", "no named types declared")
-    out = [edits.change(ctx, "local_type", None, name, definition, force=replace, record={"name": name})
-           for name, definition in defs]
     return finish(ctx, out)
 
 
@@ -222,11 +227,8 @@ def type_dump(ctx: Ctx, names: list[str] | None = None) -> list[dict]:
             return 0
 
     p = P()
-    vec = ida_typeinf.ordvec_t()
-    for o in ordinals:
-        vec.push_back(o)
     flags = ida_typeinf.PDF_INCL_DEPS | ida_typeinf.PDF_DEF_FWD | ida_typeinf.PDF_HEADER_CMT
-    ida_typeinf.print_decls(p, til, vec, flags)
+    ida_typeinf.print_decls(p, til, ordinals, flags)
     text = "".join(p.parts)
     return [{"_t": "header", "types": len(ordinals), "text": text}]
 

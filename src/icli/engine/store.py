@@ -14,6 +14,9 @@ import ida_netnode
 
 _TAG_DOC = "J"
 _TAG_LOG = "L"
+# A blob occupies consecutive supval slots (1 KiB each) from its index, so
+# log records are spaced far apart: up to 1 GiB per record.
+_STRIDE = 1 << 20
 
 
 def _node(name: str, create: bool = True) -> ida_netnode.netnode | None:
@@ -47,7 +50,8 @@ class Doc:
 
 
 class Log:
-    """Append-only list of JSON records; index 1..N, count in altval 0."""
+    """Append-only list of JSON records 1..N (blob at N * _STRIDE); the
+    count is altval 0."""
 
     def __init__(self, name: str) -> None:
         self.name = name
@@ -60,7 +64,7 @@ class Log:
         n = _node(self.name)
         assert n is not None
         idx = int(n.altval(0)) + 1
-        n.setblob(json.dumps(record, separators=(",", ":")).encode("utf-8"), idx, _TAG_LOG)
+        n.setblob(json.dumps(record, separators=(",", ":")).encode("utf-8"), idx * _STRIDE, _TAG_LOG)
         n.altset(0, idx)
         return idx
 
@@ -68,7 +72,7 @@ class Log:
         n = _node(self.name, create=False)
         if n is None:
             return None
-        blob = n.getblob(idx, _TAG_LOG)
+        blob = n.getblob(idx * _STRIDE, _TAG_LOG)
         return json.loads(blob.decode("utf-8")) if blob else None
 
     def __iter__(self) -> Iterator[dict]:
