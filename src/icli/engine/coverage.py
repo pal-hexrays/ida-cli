@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import bisect
 
+import ida_nalt
+
 from .store import Doc
 
 _DOC = Doc("$icli.coverage")
@@ -16,7 +18,8 @@ def _load() -> None:
     global _keys, _hits
     if _keys is None:
         raw = _DOC.load({}) or {}
-        _hits = {int(k, 16): int(v) for k, v in raw.items()}
+        base = ida_nalt.get_imagebase()  # keys are image-base offsets: hits survive rebasing
+        _hits = {base + int(k, 16): int(v) for k, v in raw.items()}
         _keys = sorted(_hits)
 
 
@@ -39,7 +42,8 @@ def add(counts: dict[int, int], replace: bool = False) -> int:
         _hits.clear()
     for ea, n in counts.items():
         _hits[ea] = _hits.get(ea, 0) + int(n)
-    _DOC.save({f"{k:#x}": v for k, v in sorted(_hits.items())})
+    base = ida_nalt.get_imagebase()
+    _DOC.save({f"{k - base:#x}": v for k, v in sorted(_hits.items())})
     _keys = sorted(_hits)
     return len(_hits)
 

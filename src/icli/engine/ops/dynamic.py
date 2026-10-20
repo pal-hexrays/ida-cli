@@ -75,15 +75,36 @@ def _dump(expr: str) -> dict:
     return {"expr": where, "ea": A(ea), "bytes": data.hex() if data else None}
 
 
-def _event_loop(ctx: Ctx, timeout: float, on_suspend: Any) -> int:
+def _detach() -> None:
+    """Leave an attached process running: suspend, drop our breakpoints,
+    detach, and wait until the server confirms."""
+    ida_dbg.suspend_process()
+    ida_dbg.wait_for_next_event(ida_dbg.WFNE_SUSP, 5)
+    for i in reversed(range(ida_dbg.get_bpt_qty())):
+        b = ida_dbg.bpt_t()
+        if ida_dbg.getn_bpt(i, b):
+            ida_dbg.del_bpt(b.ea)
+    ida_dbg.detach_process()
+    for _ in range(20):
+        if ida_dbg.wait_for_next_event(ida_dbg.WFNE_ANY, 1) == ida_idd.PROCESS_DETACHED or \
+                ida_dbg.get_process_state() == ida_dbg.DSTATE_NOTASK:
+            break
+
+
+def _event_loop(ctx: Ctx, timeout: float, on_suspend: Any, *, detach: bool = False) -> int:
+    """Run until the process exits; on timeout kill it (or detach from an
+    attached one) and return status 10."""
     deadline = time.monotonic() + timeout
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            ida_dbg.exit_process()
+            if detach:
+                _detach()
+            else:
+                ida_dbg.exit_process()
             return Exit.TIMEOUT
         code = ida_dbg.wait_for_next_event(ida_dbg.WFNE_SUSP, int(min(remaining, 5)))
-        if code == ida_dbg.PROCESS_EXITED or ida_dbg.get_process_state() == ida_dbg.DSTATE_NOTASK:
+        if code == ida_idd.PROCESS_EXITED or ida_dbg.get_process_state() == ida_dbg.DSTATE_NOTASK:
             return 0
         if code <= 0:
             continue
@@ -118,6 +139,8 @@ def debug_run(ctx: Ctx, breaks: list[dict] | None = None, regs: list[str] | None
             raise IdaxError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
 
     def suspended(code: int) -> None:
+        if code != ida_idd.BREAKPOINT:
+            return  # attach and library events are not breakpoint hits
         ea = ida_dbg.get_ip_val()
         rec = {"_t": "break", "ea": A(ea), "thread": ida_dbg.get_current_thread(), "regs": _regs(regs),
                "stack": _stack()}
@@ -125,7 +148,7 @@ def debug_run(ctx: Ctx, breaks: list[dict] | None = None, regs: list[str] | None
             rec["memory"] = [_dump(d) for d in dumps]
         out.append(rec)
 
-    status = _event_loop(ctx, timeout, suspended)
+    status = _event_loop(ctx, timeout, suspended, detach=bool(attach))
     ctx.set_status(status)
     return out
 
@@ -146,9 +169,12 @@ def debug_snapshot(ctx: Ctx, at: list[dict] | None = None, timeout: float = 60.0
     taken = {"ok": False}
 
     def suspended(code: int) -> bool:
-        if ida_dbg.get_ip_val() == target:
-            taken["ok"] = bool(ida_dbg.take_memory_snapshot(ida_dbg.SNAP_ALL_SEG if hasattr(
-                ida_dbg, "SNAP_ALL_SEG") else 0))
+        # our only breakpoint (its address moves when the program is rebased)
+        if code == ida_idd.BREAKPOINT:
+            import ida_segment
+
+            taken["ok"] = bool(ida_segment.take_memory_snapshot(ida_segment.SNAP_ALL_SEG))
+            taken["ea"] = ida_dbg.get_ip_val()
             return False
         return True
 
@@ -158,7 +184,7 @@ def debug_snapshot(ctx: Ctx, at: list[dict] | None = None, timeout: float = 60.0
     from .. import lifecycle
 
     lifecycle.mark(analyzed=None)
-    return {"_t": "snapshot", "ea": A(target), "taken": taken["ok"]}
+    return {"_t": "snapshot", "ea": A(taken.get("ea", target)), "taken": taken["ok"]}
 
 
 @op("trace")

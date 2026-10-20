@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 icli = "icli:main"
+idax = "icli:main"
 
 [build-system]
 requires = ["uv_build>=0.10.0,<0.11.0"]
