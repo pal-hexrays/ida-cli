@@ -1,5 +1,6 @@
 """Shared fixtures.  End-to-end tests (marked ``ida``) run the real CLI
-against real idalib workers; they need a configured IDA installation."""
+against real idalib workers; they need a configured IDA installation.
+With ``ICLI_BINARY`` set, they run that single-file binary instead."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ from pathlib import Path
 import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures"
+COMMAND = [os.environ["ICLI_BINARY"]] if os.environ.get("ICLI_BINARY") else [sys.executable, "-m", "icli"]
 
 
 @dataclass
@@ -56,7 +58,7 @@ def icli(cache_dir, workdir):
         e["ICLI_CACHE_DIR"] = str(cache_dir)
         e.pop("ICLI_DB", None)
         e.update(env or {})
-        proc = subprocess.run([sys.executable, "-m", "icli", *args], input=stdin, capture_output=True,
+        proc = subprocess.run([*COMMAND, *args], input=stdin, capture_output=True,
                               text=True, cwd=cwd or workdir, env=e, timeout=timeout)
         return Result(proc.returncode, proc.stdout, proc.stderr)
 

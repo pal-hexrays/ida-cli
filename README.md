@@ -158,6 +158,16 @@ icli has two parts:
 
 [ida-nexus](https://github.com/HexRaysSA/ida-nexus) starts the IDA process and passes requests between the two parts. If an IDA window with the ida-nexus plugin already has the same binary open, icli works in that window instead.
 
+## Build a single-file binary
+
+```sh
+uv run --with pyinstaller pyinstaller icli.spec
+```
+
+The binary is `dist/icli`. It still needs IDA Pro installed on the computer that runs it.
+
+CI builds binaries for Linux, Windows and macOS on every push. You can download them from the workflow run's artifacts.
+
 ## Run the tests
 
 ```sh
@@ -165,6 +175,8 @@ uv run pytest
 ```
 
 The tests in `tests/e2e` need IDA. The tests in `tests/unit` do not.
+
+To run the tests in `tests/e2e` against a binary, set `ICLI_BINARY` to its path.
 
 ## Manual
 

@@ -4,6 +4,9 @@ __version__ = "0.1.0"
 
 
 def main() -> None:
+    from .cli.frozen import setup
+
+    setup()
     from .cli.main import entry
 
     entry()

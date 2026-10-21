@@ -20,11 +20,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..errors import Exit, IcliError
+from .frozen import FROZEN
 from .target import Target
 
 STATES = ["loaded", "analyzing", "analyzed", "enriched"]
 
-_SRC_ROOT = str(Path(__file__).resolve().parents[2])
+# A binary bundles the engine: nothing to add to the worker's sys.path.
+_SRC_ROOT = None if FROZEN else str(Path(__file__).resolve().parents[2])
 _digest: str | None = None
 
 
@@ -33,6 +35,11 @@ def source_digest() -> str:
     global _digest
     if _digest is None:
         h = hashlib.sha256()
+        if FROZEN:  # the engine is inside the binary
+            st = Path(sys.executable).stat()
+            h.update(f"{sys.executable}:{st.st_size}:{st.st_mtime_ns}".encode())
+            _digest = h.hexdigest()[:16]
+            return _digest
         pkg = Path(__file__).resolve().parents[1]
         for p in sorted(pkg.rglob("*.py")):
             st = p.stat()
@@ -43,7 +50,7 @@ def source_digest() -> str:
 
 _BOOTSTRAP = """\
 import sys as _sys
-if {root!r} not in _sys.path:
+if {root!r} and {root!r} not in _sys.path:
     _sys.path.insert(0, {root!r})
 import icli.engine.rpc as _icli_rpc
 if getattr(_icli_rpc, "DIGEST", None) != {digest!r}:

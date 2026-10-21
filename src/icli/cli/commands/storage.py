@@ -14,6 +14,7 @@ from pathlib import Path
 from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_duration, parse_size
 from .. import cache
+from ..frozen import self_command
 from ..registry import Command, Invocation, register
 
 
@@ -495,7 +496,7 @@ class Serve(Command):
         log = (srv.runtime_dir() / f"serve-{os.getpid()}.log")
         srv.runtime_dir().mkdir(parents=True, exist_ok=True)
         with log.open("ab") as fh:
-            proc = subprocess.Popen([sys.executable, "-m", "icli", *argv], stdin=subprocess.DEVNULL, stdout=fh,
+            proc = subprocess.Popen([*self_command(), *argv], stdin=subprocess.DEVNULL, stdout=fh,
                                     stderr=fh, start_new_session=True, cwd=os.getcwd())
         deadline = time.time() + 900
         while time.time() < deadline:

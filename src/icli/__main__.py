@@ -1,3 +1,3 @@
-from icli.cli.main import entry
+from icli import main
 
-entry()
+main()
