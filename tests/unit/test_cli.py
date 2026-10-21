@@ -85,3 +85,55 @@ def test_command_destinations_never_shadow_global_options(name):
             for action in group._group_actions:
                 if action.dest in GLOBAL_DESTS | LOAD_DESTS and action.default is not argparse.SUPPRESS:
                     raise AssertionError(f"{p.prog}: {action.dest!r} shadows a global/load option")
+
+
+# -- no IDA installed ------------------------------------------------------------------
+
+NEEDS_IDA = [
+    ["list", "functions", "sample.o"],
+    ["decompile", "sample.o", "main"],
+    ["--db", "x.i64", "comment", "sample.o", "main", "hi"],
+    ["exec", "sample.o", "-c", "1"],
+    ["identify", "sample.o"],
+    ["loaders", "sample.o"],
+    ["processors"],
+]
+
+
+def _no_ida(tmp_path, how: str) -> dict:
+    """An environment in which IDA cannot be found, in several ways."""
+    usr = tmp_path / "idausr"
+    usr.mkdir()
+    env = {"IDAUSR": str(usr), "IDADIR": ""}
+    if how == "missing-dir":
+        env["IDADIR"] = str(tmp_path / "nope")
+    elif how == "dir-without-idalib":
+        (tmp_path / "ida").mkdir()
+        (tmp_path / "ida" / "ida.cfg").write_text("")
+        env["IDADIR"] = str(tmp_path / "ida")
+    elif how == "idadir-is-a-file":
+        (tmp_path / "ida").write_text("")
+        env["IDADIR"] = str(tmp_path / "ida")
+    elif how == "config-points-nowhere":
+        (usr / "ida-config.json").write_text('{"Paths": {"ida-install-dir": "%s"}}' % (tmp_path / "gone"))
+    elif how == "config-is-garbage":
+        (usr / "ida-config.json").write_text("{not json")
+    return env
+
+
+@pytest.mark.parametrize("how", ["missing-dir", "dir-without-idalib", "idadir-is-a-file",
+                                 "config-points-nowhere", "config-is-garbage"])
+@pytest.mark.parametrize("argv", NEEDS_IDA, ids=lambda a: " ".join(a[:2]))
+def test_without_ida_commands_say_so(icli, tmp_path, how, argv):
+    r = icli(*argv, env=_no_ida(tmp_path, how), timeout=60)
+    assert r.code == Exit.LICENSE, (r.code, r.err)
+    assert "IDA Pro was not found" in r.err and "IDADIR" in r.err
+    assert "Traceback" not in r.err and r.out == ""
+
+
+@pytest.mark.parametrize("argv", [["--help"], ["help", "selectors"], ["schema", "decompile"],
+                                  ["completion", "bash"], ["ref", "decompile"]])
+def test_without_ida_offline_commands_still_work(icli, tmp_path, argv):
+    r = icli(*argv, env=_no_ida(tmp_path, "missing-dir"), timeout=60)
+    assert r.code == 0, r.err
+    assert r.out

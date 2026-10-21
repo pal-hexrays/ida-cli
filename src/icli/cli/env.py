@@ -57,6 +57,25 @@ def idadir() -> Path | None:
     return None
 
 
+IDALIB = {"darwin": "libidalib.dylib", "win32": "idalib.dll"}.get(sys.platform, "libidalib.so")
+
+
+def require_ida() -> Path:
+    """The IDA installation, or a usage-level error saying how to provide one."""
+    from ..errors import Exit, IcliError
+
+    d = idadir()
+    if d is None or not (d / IDALIB).is_file():
+        where = f" ({d} has no {IDALIB})" if d is not None else ""
+        raise IcliError(
+            Exit.LICENSE,
+            f"IDA Pro was not found{where}. icli needs IDA Pro 9.0 or later with idalib. "
+            "Set IDADIR to the IDA folder, or run IDA's py-activate-idalib.py once.",
+            "NOIDA",
+        )
+    return d
+
+
 @lru_cache(maxsize=1)
 def kernel_version() -> str:
     """The installed IDA version, read from the installation (no kernel load)."""

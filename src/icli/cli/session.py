@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..errors import Exit, IcliError
+from .env import require_ida
 from .frozen import FROZEN
 from .target import Target
 
@@ -123,6 +124,7 @@ class Session:
         t = self.target
         db = t.db
         assert db is not None
+        require_ida()
         self.fresh = t.input is not None and not db.exists() and not db.with_suffix(".id0").exists()
         attached = None if self.opts.no_server else self._find_gui()
         if attached is not None:

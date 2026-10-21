@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ..errors import Exit, IcliError
-from .env import idadir, idausr
+from .env import idadir, idausr, require_ida
 
 
 class _QString(ctypes.Structure):
@@ -60,9 +60,7 @@ class _IdpDesc(ctypes.Structure):
 @lru_cache(maxsize=1)
 def kernel() -> ctypes.CDLL:
     """Initialise idalib in this process (no database) and return libida."""
-    if idadir() is None:
-        raise IcliError(Exit.LICENSE, "IDA installation not found (set IDADIR or run py-activate-idalib.py)",
-                        "NOIDA")
+    require_ida()
     try:
         import idapro  # noqa: F401  (initialises the kernel)
     except Exception as error:  # noqa: BLE001 - licence and installation problems

@@ -12,6 +12,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from ..errors import IcliError
+
 PACKER_SECTIONS = {"UPX0": "UPX", "UPX1": "UPX", ".aspack": "ASPack", ".adata": "ASPack", ".MPRESS1": "MPRESS",
                    ".MPRESS2": "MPRESS", ".petite": "Petite", ".themida": "Themida", ".vmp0": "VMProtect",
                    ".vmp1": "VMProtect", ".nsp0": "NsPack", "PEC2": "PECompact", ".enigma1": "Enigma"}
@@ -111,6 +113,8 @@ def identify(path: Path, algos: list[str], *, deep: bool = False) -> dict:
     info: dict[str, Any] = {"_t": "identify", "path": str(path), "size": len(data), "entropy": entropy(data)}
     try:
         loaders = local.loaders_for(path)
+    except IcliError:  # no IDA, no licence: say so rather than "unrecognised"
+        raise
     except Exception:
         loaders = []
     info["loader"] = loaders[0]["loader"] if loaders else None
