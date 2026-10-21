@@ -545,7 +545,7 @@ Force a processor module:
 .B "icli processors"
 lists them.
 .TP
-.BR \-\-bitness " 16|32|64" ", " \-\-endian " little|big"
+.BR \-\-bitness " 16|32|64, " \-\-endian " little|big"
 Defaults for raw images and bi\-endian processors.
 .TP
 .BI \-\-base " addr"
@@ -954,7 +954,7 @@ Override the prototype at one call site.
 Create a function
 .RB ( \-\-end
 optional), delete it (keeping instructions), change bounds, flags
-.RB ( \-\-flags +noret,\-lib )
+.RB ( "\-\-flags +noret,\-lib" )
 or frame, add/remove chunks.
 .TP
 .B icli make \fIkind target sel\fR [\fIoptions\fR]
@@ -1036,9 +1036,9 @@ FLIRT signatures.
 Apply
 .I .sig
 files by name (searched in
-.IR $IDAUSR/sig/ proc
+.I $IDAUSR/sig/proc
 then
-.IR $IDADIR/sig/ proc )
+.IR $IDADIR/sig/proc )
 or path;
 .B auto
 uses the loader's startup signatures.
