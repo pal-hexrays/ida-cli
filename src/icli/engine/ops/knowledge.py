@@ -18,7 +18,7 @@ import ida_name
 import ida_typeinf
 import ida_ua
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import edits, select
 from ..context import A, Ctx
 from ..kinds.functions import chunks
@@ -53,12 +53,12 @@ def resolve_sig(name: str) -> str:
         p = p.with_suffix(".sig")
     if p.is_absolute() or p.exists():
         if not p.exists():
-            raise IdaxError(Exit.NOT_FOUND, f"{name}: signature file not found", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"{name}: signature file not found", "NOTFOUND")
         return str(p.resolve())
     for d in _sig_dirs():
         if (d / p.name).exists():
             return p.stem
-    raise IdaxError(Exit.NOT_FOUND, f"{name}: no such signature in {', '.join(str(d) for d in _sig_dirs())}",
+    raise IcliError(Exit.NOT_FOUND, f"{name}: no such signature in {', '.join(str(d) for d in _sig_dirs())}",
                     "NOTFOUND")
 
 
@@ -66,7 +66,7 @@ def apply_signature(name: str, *, plan_only: bool = False) -> dict:
     sig = resolve_sig(name)
     before = {s["name"]: s["matches"] for s in applied_signatures()}
     if ida_funcs.plan_to_apply_idasgn(sig) == 0:
-        raise IdaxError(Exit.LOAD, f"{name}: cannot apply signature", "LOAD")
+        raise IcliError(Exit.LOAD, f"{name}: cannot apply signature", "LOAD")
     if plan_only:
         return {"_t": "sig", "name": name, "status": "planned"}
     ida_auto.auto_wait()
@@ -248,7 +248,7 @@ def til_export(ctx: Ctx, path: str, description: str | None = None) -> dict:
             n += 1
     ida_typeinf.compact_til(til)
     if not ida_typeinf.store_til(til, None, str(target.resolve())) or not target.exists():
-        raise IdaxError(Exit.INTERNAL, f"{path}: cannot write type library", "INTERR")
+        raise IcliError(Exit.INTERNAL, f"{path}: cannot write type library", "INTERR")
     ida_typeinf.free_til(til)
     return {"_t": "til", "path": str(target), "types": n}
 
@@ -260,10 +260,10 @@ def _lumina() -> Any:
     try:
         import ida_lumina
     except ImportError:
-        raise IdaxError(Exit.LICENSE, "this IDA has no Lumina support", "LICENSE")
+        raise IcliError(Exit.LICENSE, "this IDA has no Lumina support", "LICENSE")
     conn = ida_lumina.get_server_connection()
     if conn is None:
-        raise IdaxError(Exit.NETWORK, "cannot connect to the Lumina server (configured in IDA: Options > General > Lumina)", "NETWORK")
+        raise IcliError(Exit.NETWORK, "cannot connect to the Lumina server (configured in IDA: Options > General > Lumina)", "NETWORK")
     return ida_lumina, conn
 
 
@@ -285,7 +285,7 @@ def lumina_pull(ctx: Ctx, selectors: list[dict] | None, *, apply: bool = False) 
                               else fk.all(ctx))]
     res = conn.pull_md(_eavec(funcs), 0)
     if res is None:
-        raise IdaxError(Exit.NETWORK, "Lumina pull failed", "NETWORK")
+        raise IcliError(Exit.NETWORK, "Lumina pull failed", "NETWORK")
     out = []
     results = list(res.results)
     codes = list(res.codes)
@@ -339,16 +339,16 @@ def lumina_push(ctx: Ctx, selectors: list[dict] | None = None) -> list[dict]:
     if refused and selectors:
         ctx.warn("DUMMY", f"not pushing {len(refused)} function(s) with dummy names")
     if not named:
-        raise IdaxError(Exit.EMPTY_SELECTION, "no user-named functions to push", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "no user-named functions to push", "NOMATCH")
     result = ida_lumina.push_md_result_t() if hasattr(ida_lumina, "push_md_result_t") else None
     opts = ida_lumina.push_md_opts_t() if hasattr(ida_lumina, "push_md_opts_t") else None
     if result is None or opts is None:
-        raise IdaxError(Exit.LICENSE, "this IDA's Lumina API cannot push", "LICENSE")
+        raise IcliError(Exit.LICENSE, "this IDA's Lumina API cannot push", "LICENSE")
     if hasattr(opts, "eas"):
         for it in named:
             opts.eas.push_back(it.ea)
     if not conn.push_md(result, opts):
-        raise IdaxError(Exit.NETWORK, "Lumina push failed", "NETWORK")
+        raise IcliError(Exit.NETWORK, "Lumina push failed", "NETWORK")
     return [{"_t": "lumina", "ea": A(it.ea), "name": fk.get(it, "name", ctx), "pushed": True} for it in named]
 
 
@@ -357,7 +357,7 @@ def lumina_del(ctx: Ctx, selectors: list[dict]) -> list[dict]:
     _, conn = _lumina()
     funcs = [it.ea for it in select.functions_of(ctx, selection(ctx, selectors))]
     if not conn.del_history(_eavec(funcs)):
-        raise IdaxError(Exit.NETWORK, "Lumina delete failed", "NETWORK")
+        raise IcliError(Exit.NETWORK, "Lumina delete failed", "NETWORK")
     return [{"_t": "lumina", "ea": A(ea), "deleted": True} for ea in funcs]
 
 
@@ -378,7 +378,7 @@ def load_debug_info(src: str) -> dict:
     if src in ("symsrv", "debuginfod"):
         return _plugin_load("pdb" if src == "symsrv" else "dwarf", None, src)
     if not p.exists():
-        raise IdaxError(Exit.NOT_FOUND, f"{src}: no such file", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{src}: no such file", "NOTFOUND")
     kind = "pdb" if p.suffix.lower() == ".pdb" else "dwarf"
     return _plugin_load(kind, p, src)
 
@@ -416,7 +416,7 @@ def load(ctx: Ctx, kind: str, path: str | None = None, at: int | None = None, te
         # exec_idc_script stays silent about compile errors: compile first
         err = ida_expr.compile_idc_file(path) or ida_expr.exec_idc_script(None, path, "main", None, 0)
         if err:
-            raise IdaxError(Exit.SCRIPT, f"{path}: IDC script failed: {err}", "SCRIPT")
+            raise IcliError(Exit.SCRIPT, f"{path}: IDC script failed: {err}", "SCRIPT")
         return [{"_t": "load", "kind": "idc", "path": path}]
     if kind in ("names", "map"):
         out = []
@@ -437,13 +437,13 @@ def load(ctx: Ctx, kind: str, path: str | None = None, at: int | None = None, te
         return [{"_t": "load", "kind": "coverage", "blocks": len(counts), "stored": n}]
     if kind in ("binary", "snapshot"):
         if at is None:
-            raise IdaxError(Exit.USAGE, f"load {kind} needs --at ADDR", "USAGE")
+            raise IcliError(Exit.USAGE, f"load {kind} needs --at ADDR", "USAGE")
         from .analysis import create_segment
 
         data = Path(path).read_bytes()
         seg_name = name or Path(path).name.replace(".", "_")[:32]
         if ida_bytes.get_flags(at) and ida_bytes.is_loaded(at) and kind == "binary":
-            raise IdaxError(Exit.CONFLICT, f"{at:#x} is already loaded", "CONFLICT")
+            raise IcliError(Exit.CONFLICT, f"{at:#x} is already loaded", "CONFLICT")
         if kind == "snapshot" and ida_bytes.is_loaded(at):
             ida_bytes.put_bytes(at, data)  # memory dump over existing segments
         else:
@@ -454,4 +454,4 @@ def load(ctx: Ctx, kind: str, path: str | None = None, at: int | None = None, te
 
         lifecycle.mark(analyzed=None)
         return [{"_t": "load", "kind": kind, "ea": A(at), "end": A(at + len(data)), "size": len(data)}]
-    raise IdaxError(Exit.USAGE, f"unknown load kind {kind!r}", "USAGE")
+    raise IcliError(Exit.USAGE, f"unknown load kind {kind!r}", "USAGE")

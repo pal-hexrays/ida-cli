@@ -13,7 +13,7 @@ import json
 import traceback
 from typing import Any, Callable
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from .context import Addr, Ctx, Options
 
 DIGEST: str | None = None
@@ -49,7 +49,7 @@ def call(db: Any, request: str) -> dict:
         _load_ops()
         fn = OPS.get(req["op"])
         if fn is None:
-            raise IdaxError(Exit.USAGE, f"unknown engine operation {req['op']!r}", "USAGE")
+            raise IcliError(Exit.USAGE, f"unknown engine operation {req['op']!r}", "USAGE")
         result = fn(ctx, **req.get("params", {}))
         records = _collect(result)
         render = _renderer(ctx)
@@ -60,7 +60,7 @@ def call(db: Any, request: str) -> dict:
             "raw": ctx.raw,
             "extra": render(ctx.extra),
         }
-    except IdaxError as error:
+    except IcliError as error:
         return {"error": error.to_dict(), "warnings": ctx.warnings}
     except KeyboardInterrupt:
         raise

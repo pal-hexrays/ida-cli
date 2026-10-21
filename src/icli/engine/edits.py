@@ -20,7 +20,7 @@ import ida_name
 import ida_nalt
 import ida_typeinf
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from . import journal, typesupport
 from .context import A, Ctx
 
@@ -38,8 +38,8 @@ class Handler:
 HANDLERS: dict[str, Handler] = {}
 
 
-def _fail(msg: str, status: int = Exit.CONFLICT, code: str = "CONFLICT") -> IdaxError:
-    return IdaxError(status, msg, code)
+def _fail(msg: str, status: int = Exit.CONFLICT, code: str = "CONFLICT") -> IcliError:
+    return IcliError(status, msg, code)
 
 
 # -- names -------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ def _get_comment(ea: int, key: str) -> str | None:
         loc = ida_hexrays.treeloc_t()
         loc.ea, loc.itp = ea, ida_hexrays.ITP_SEMI
         return r.cfunc.get_user_cmt(loc, ida_hexrays.RETRIEVE_ALWAYS) or None
-    raise IdaxError(Exit.USAGE, f"unknown comment kind {key!r}", "USAGE")
+    raise IcliError(Exit.USAGE, f"unknown comment kind {key!r}", "USAGE")
 
 
 def _set_comment(ea: int, key: str, value: Any, opts: dict) -> None:
@@ -131,7 +131,7 @@ def _set_comment(ea: int, key: str, value: Any, opts: dict) -> None:
     elif key == "function":
         f = ida_funcs.get_func(ea)
         if f is None:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
         ida_funcs.set_func_cmt(f, text, False)
     elif key == "pseudocode":
         import ida_hexrays
@@ -140,7 +140,7 @@ def _set_comment(ea: int, key: str, value: Any, opts: dict) -> None:
 
         r = decomp.decompile(ea)
         if not r.ok:
-            raise IdaxError(Exit.DECOMPILE, f"{ea:#x}: cannot decompile: {r.message}", "HEXRAYS")
+            raise IcliError(Exit.DECOMPILE, f"{ea:#x}: cannot decompile: {r.message}", "HEXRAYS")
         loc = ida_hexrays.treeloc_t()
         loc.ea, loc.itp = ea, ida_hexrays.ITP_SEMI
         r.cfunc.set_user_cmt(loc, text)
@@ -185,7 +185,7 @@ def _strip_name(decl: str) -> str:
     try:
         tif, _ = typesupport.parse_decl(decl)
         return str(tif)
-    except IdaxError:
+    except IcliError:
         return decl
 
 
@@ -209,7 +209,7 @@ def lvars(ea: int) -> list:
 
     r = decomp.decompile(ea)
     if not r.ok:
-        raise IdaxError(Exit.DECOMPILE, f"{ea:#x}: cannot decompile: {r.message}", "HEXRAYS")
+        raise IcliError(Exit.DECOMPILE, f"{ea:#x}: cannot decompile: {r.message}", "HEXRAYS")
     return list(r.cfunc.get_lvars())
 
 
@@ -232,7 +232,7 @@ def _set_lvar_name(ea: int, key: str, value: Any, opts: dict) -> None:
 
     lv = find_lvar(ea, key=key)
     if lv is None:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"no local variable {key}", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"no local variable {key}", "NOMATCH")
     if any(other.name == value for other in lvars(ea) if lvar_key(other) != key):
         raise _fail(f"local variable name {value!r} is already used")
     if not ida_hexrays.rename_lvar(ida_funcs.get_func(ea).start_ea, lv.name, value):
@@ -257,7 +257,7 @@ def _set_lvar_type(ea: int, key: str, value: Any, opts: dict) -> None:
 
     lv = find_lvar(ea, key=key)
     if lv is None:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"no local variable {key}", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"no local variable {key}", "NOMATCH")
     info = ida_hexrays.lvar_saved_info_t()
     info.ll = lv
     info.type = typesupport.parse_type(value)
@@ -342,7 +342,7 @@ def _set_local_type(ea: Any, key: str, value: Any, opts: dict) -> None:
             raise _fail(f"cannot delete local type {key!r}")
         return
     if ida_typeinf.parse_decls(til, value, None, ida_typeinf.HTI_DCL) != 0:
-        raise IdaxError(Exit.USAGE, f"cannot parse definition of {key!r}", "BADDECL")
+        raise IcliError(Exit.USAGE, f"cannot parse definition of {key!r}", "BADDECL")
 
 
 def _local_type_equal(a: Any, b: Any) -> bool:
@@ -362,7 +362,7 @@ def change(ctx: Ctx, kind: str, ea: int | None, key: Any, value: Any, *, force: 
     """Set ``kind`` at ``ea``/``key`` to ``value``; returns an edit record."""
     h = HANDLERS.get(kind)
     if h is None:
-        raise IdaxError(Exit.USAGE, f"unknown edit kind {kind!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown edit kind {kind!r}", "USAGE")
     opts = opts or {}
     before = h.get(ea, key) if ea is not None or kind == "local_type" else None
     base = {"_t": "edit", "kind": kind, "ea": A(ea) if isinstance(ea, int) else None, "key": key,

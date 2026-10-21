@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_int
 from ..registry import Command, Invocation, register, stdin_lines
 from .base import add_edit_options
@@ -268,7 +268,7 @@ def _read(path: str) -> str:
     try:
         return Path(path).read_text()
     except OSError as error:
-        raise IdaxError(Exit.NOT_FOUND, f"{path}: {error.strerror}", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{path}: {error.strerror}", "NOTFOUND")
 
 
 @register

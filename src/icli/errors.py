@@ -1,6 +1,6 @@
 """Exit statuses and the error type shared by the client and the engine.
 
-The codes are the stable interface documented under EXIT STATUS in idx(1).
+The codes are the stable interface documented under EXIT STATUS in icli(1).
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def combine(a: int, b: int) -> int:
     return min(codes)
 
 
-class IdaxError(Exception):
+class IcliError(Exception):
     """An error carrying the exit status it maps to.
 
     ``code`` is a short machine-readable diagnostic identifier, used in
@@ -62,9 +62,9 @@ class IdaxError(Exception):
         return {"status": self.status, "message": self.message, "code": self.code}
 
     @classmethod
-    def from_dict(cls, data: dict) -> "IdaxError":
+    def from_dict(cls, data: dict) -> "IcliError":
         return cls(int(data["status"]), str(data["message"]), str(data.get("code", "ERROR")))
 
 
-def usage(message: str) -> IdaxError:
-    return IdaxError(Exit.USAGE, message, "USAGE")
+def usage(message: str) -> IcliError:
+    return IcliError(Exit.USAGE, message, "USAGE")

@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from .env import env, runtime_dir
 
 SERVED: dict[str, Any] = {}
@@ -100,7 +100,7 @@ def _send(address: str, request: dict, token: str | None) -> dict:
                 break
             buf += chunk
     if not buf:
-        raise IdaxError(Exit.TIMEOUT, f"server at {address} closed the connection", "SERVER")
+        raise IcliError(Exit.TIMEOUT, f"server at {address} closed the connection", "SERVER")
     return json.loads(buf)
 
 
@@ -110,12 +110,11 @@ def forward(address: str, argv: list[str], *, token: str | None = None) -> int:
     if not sys.stdin.isatty() and _wants_stdin(argv):
         stdin = sys.stdin.read()
     req = {"argv": argv, "cwd": os.getcwd(), "stdin": stdin, "tty": sys.stdout.isatty(),
-           "env": {k: v for k, v in os.environ.items() if k.startswith(("ICLI_", "IDX_")) and k not in (
-               "ICLI_SOCKET", "IDX_SOCKET")}}
+           "env": {k: v for k, v in os.environ.items() if k.startswith("ICLI_") and k != "ICLI_SOCKET"}}
     try:
         res = _send(address, req, token)
     except OSError as error:
-        raise IdaxError(Exit.TIMEOUT, f"cannot reach icli server at {address}: {error}", "SERVER")
+        raise IcliError(Exit.TIMEOUT, f"cannot reach icli server at {address}: {error}", "SERVER")
     sys.stdout.write(res.get("out", ""))
     sys.stdout.flush()
     sys.stderr.write(res.get("err", ""))
@@ -143,7 +142,7 @@ def maybe_forward(spec: str | None, g: Any, argv: list[str]) -> int | None:
         from .opening import resolve_target
 
         target = resolve_target(spec, g)
-    except IdaxError:
+    except IcliError:
         return None
     if target.db is None or target.temporary:
         return None

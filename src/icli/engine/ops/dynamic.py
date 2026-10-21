@@ -9,7 +9,7 @@ import ida_dbg
 import ida_idd
 import ida_kernwin
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import select
 from ..context import A, Ctx
 from ..rpc import op
@@ -28,13 +28,12 @@ def _load_debugger(name: str | None, remote: str | None) -> str:
         dbg = {"mac": "arm_mac", "linux": "armlinux"}.get(dbg, dbg)
     is_remote = bool(remote) or dbg in ("gdb", "windbg")
     if not ida_dbg.load_debugger(dbg, is_remote):
-        raise IdaxError(Exit.USAGE, f"debugger {dbg!r} is not available", "USAGE")
+        raise IcliError(Exit.USAGE, f"debugger {dbg!r} is not available", "USAGE")
     if remote:
         import os
 
         host, _, port = remote.rpartition(":")
-        ida_dbg.set_remote_debugger(host or "127.0.0.1", os.environ.get("ICLI_DEBUG_PASSWORD")
-                                    or os.environ.get("IDX_DEBUG_PASSWORD") or "", int(port or 23946))
+        ida_dbg.set_remote_debugger(host or "127.0.0.1", os.environ.get("ICLI_DEBUG_PASSWORD") or "", int(port or 23946))
     return dbg
 
 
@@ -131,12 +130,12 @@ def debug_run(ctx: Ctx, breaks: list[dict] | None = None, regs: list[str] | None
     out: list[dict] = []
     if attach:
         if ida_dbg.attach_process(int(attach.get("pid") or -1), -1) <= 0:
-            raise IdaxError(Exit.USAGE, f"cannot attach to {attach}", "USAGE")
+            raise IcliError(Exit.USAGE, f"cannot attach to {attach}", "USAGE")
     else:
         import ida_nalt
 
         if ida_dbg.start_process(ida_nalt.get_input_file_path(), " ".join(args or []), "") <= 0:
-            raise IdaxError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
+            raise IcliError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
 
     def suspended(code: int) -> None:
         if code != ida_idd.BREAKPOINT:
@@ -165,7 +164,7 @@ def debug_snapshot(ctx: Ctx, at: list[dict] | None = None, timeout: float = 60.0
     target = select.addresses_of(selection(ctx, at))[0] if at else entry_point()
     ida_dbg.add_bpt(target, 0, 4)
     if ida_dbg.start_process(ida_nalt.get_input_file_path(), "", "") <= 0:
-        raise IdaxError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
+        raise IcliError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
     taken = {"ok": False}
 
     def suspended(code: int) -> bool:
@@ -198,12 +197,12 @@ def trace(ctx: Ctx, mode: str = "block", ranges: list[dict] | None = None, cover
     enable = {"insn": ida_dbg.enable_insn_trace, "block": ida_dbg.enable_bblk_trace,
               "func": ida_dbg.enable_func_trace}.get(mode)
     if enable is None:
-        raise IdaxError(Exit.USAGE, f"--mode {mode}: one of insn, block, func", "USAGE")
+        raise IcliError(Exit.USAGE, f"--mode {mode}: one of insn, block, func", "USAGE")
     from ..addresses import entry_point
 
     ida_dbg.add_bpt(entry_point(), 0, 4)
     if ida_dbg.start_process(ida_nalt.get_input_file_path(), " ".join(args or []), "") <= 0:
-        raise IdaxError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
+        raise IcliError(Exit.LOAD, "cannot start the process under the debugger", "LOAD")
     started = {"on": False}
 
     def suspended(code: int) -> None:

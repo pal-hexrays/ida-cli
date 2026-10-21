@@ -10,7 +10,7 @@ import ida_name
 import ida_nalt
 import ida_segment
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 
 BADADDR = ida_idaapi.BADADDR
 
@@ -55,9 +55,9 @@ def symbol(sym: str) -> int:
     elif sym == "max":
         ea = ida_ida.inf_get_max_ea()
     else:
-        raise IdaxError(Exit.USAGE, f"unknown symbol ${sym}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown symbol ${sym}", "USAGE")
     if ea == BADADDR:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"${sym} is not defined in this database", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"${sym} is not defined in this database", "NOMATCH")
     return ea
 
 
@@ -95,7 +95,7 @@ def atom(a: dict) -> list[int]:
     if "off" in a:
         ea = ida_loader.get_fileregion_ea(int(a["off"]))
         if ea == BADADDR:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"file offset {a['off']:#x} is not loaded", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"file offset {a['off']:#x} is not loaded", "NOMATCH")
         return [ea]
     if "seg" in a:
         seg = ida_segment.get_segm_by_name(a["seg"])
@@ -109,7 +109,7 @@ def atom(a: dict) -> list[int]:
         else:
             found = name_to_ea(a["name"])
         return found
-    raise IdaxError(Exit.USAGE, f"bad address atom {a!r}", "USAGE")
+    raise IcliError(Exit.USAGE, f"bad address atom {a!r}", "USAGE")
 
 
 def evaluate(expr: dict) -> list[int]:
@@ -120,7 +120,7 @@ def evaluate(expr: dict) -> list[int]:
     for sign, a in terms[1:]:
         vals = atom(a)
         if len(vals) != 1:
-            raise IdaxError(Exit.USAGE, "address arithmetic needs a single-valued operand", "USAGE")
+            raise IcliError(Exit.USAGE, "address arithmetic needs a single-valued operand", "USAGE")
         offset += vals[0] if sign == "+" else -vals[0]
     return [b + offset for b in bases]
 

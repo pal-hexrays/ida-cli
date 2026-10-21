@@ -7,7 +7,7 @@ from typing import Any
 
 import ida_idaapi
 
-from ..errors import Exit, IdaxError, combine
+from ..errors import Exit, IcliError, combine
 
 
 class Addr(int):
@@ -65,7 +65,7 @@ class Ctx:
     def warn(self, code: str, msg: str) -> None:
         """Record a warning; under --strict a warning is an error."""
         if self.opts.strict:
-            raise IdaxError(Exit.EMPTY_SELECTION if code == "NOMATCH" else Exit.USAGE, msg, code)
+            raise IcliError(Exit.EMPTY_SELECTION if code == "NOMATCH" else Exit.USAGE, msg, code)
         self.warnings.append({"_t": "diag", "level": "warning", "code": code, "msg": msg})
 
     def set_status(self, status: int) -> None:
@@ -73,4 +73,4 @@ class Ctx:
 
     def require_writable(self) -> None:
         if self.opts.read_only:
-            raise IdaxError(Exit.READ_ONLY, "database is open read-only", "READONLY")
+            raise IcliError(Exit.READ_ONLY, "database is open read-only", "READONLY")

@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_duration
 from ..registry import Command, Invocation, register
 
@@ -15,7 +15,7 @@ DEBUGGERS = ("linux", "win32", "mac", "gdb", "windbg", "bochs", "dalvik", "pin",
 
 def _require_execute(inv: Invocation) -> None:
     if not inv.g.allow_execute:
-        raise IdaxError(Exit.USAGE, "this command runs the target program: pass --allow-execute", "EXECUTE")
+        raise IcliError(Exit.USAGE, "this command runs the target program: pass --allow-execute", "EXECUTE")
 
 
 def _common(p: argparse.ArgumentParser) -> None:
@@ -79,7 +79,7 @@ def _pid_of(name: str) -> int:
     res = subprocess.run(["pgrep", "-x", name], capture_output=True, text=True)
     pids = [int(x) for x in res.stdout.split()]
     if len(pids) != 1:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"--name {name}: {len(pids)} matching processes", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"--name {name}: {len(pids)} matching processes", "NOMATCH")
     return pids[0]
 
 

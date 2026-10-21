@@ -1,7 +1,7 @@
-"""icli configuration files (CONFIGURATION in idx(1)).
+"""icli configuration files (CONFIGURATION in icli(1)).
 
-Precedence, highest first: command line, ICLI_*/IDX_* environment,
-``.icli.toml`` (or ``.idx.toml``) in the current directory or nearest parent
+Precedence, highest first: command line, ICLI_* environment,
+``.icli.toml`` in the current directory or nearest parent
 (stopping at a ``.git`` directory), ``$IDAUSR/icli.toml``,
 ``$IDADIR/cfg/icli.toml``, built-in defaults.
 """
@@ -15,7 +15,7 @@ from typing import Any
 
 from ..errors import usage
 
-PROJECT_NAMES = (".icli.toml", ".idx.toml")
+PROJECT_NAMES = (".icli.toml",)
 
 
 class _Config(dict):

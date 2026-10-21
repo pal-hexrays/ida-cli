@@ -1,4 +1,4 @@
-"""Selector grammar (SELECTORS in idx(1)).
+"""Selector grammar (SELECTORS in icli(1)).
 
 A selector is parsed into a JSON-serialisable AST of plain dicts so that it
 can be validated by the client (usage errors exit 2 before any database is

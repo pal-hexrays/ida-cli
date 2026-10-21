@@ -14,7 +14,7 @@ import ida_idaapi
 import ida_segment
 import ida_xref
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from ..lang import expr as pexpr
 from ..lang import selector as psel
 from . import addresses
@@ -107,14 +107,14 @@ def _eval(ctx: Ctx, node: dict) -> Selection:
     op = node["op"]
     fn = _OPS.get(op)
     if fn is None:
-        raise IdaxError(Exit.USAGE, f"selector operator {op!r} is not valid here", "USAGE")
+        raise IcliError(Exit.USAGE, f"selector operator {op!r} is not valid here", "USAGE")
     return fn(ctx, node)
 
 
 def _addr(ctx: Ctx, node: dict) -> Selection:
     eas = addresses.evaluate(node["expr"])
     if not eas:
-        raise IdaxError(Exit.EMPTY_SELECTION,
+        raise IcliError(Exit.EMPTY_SELECTION,
                         f"no such name or address: {addresses.describe(node['expr'])}", "NOMATCH")
     k = kind("address")
     return Selection((Item(k, ea) for ea in eas), k)
@@ -123,7 +123,7 @@ def _addr(ctx: Ctx, node: dict) -> Selection:
 def _range(ctx: Ctx, node: dict) -> Selection:
     starts = addresses.evaluate(node["start"])
     if len(starts) != 1:
-        raise IdaxError(Exit.USAGE, "range start must denote one address", "USAGE")
+        raise IcliError(Exit.USAGE, "range start must denote one address", "USAGE")
     start = starts[0]
     if node.get("size") is not None:
         size = addresses.evaluate(node["size"])[0]
@@ -133,10 +133,10 @@ def _range(ctx: Ctx, node: dict) -> Selection:
     else:
         seg = ida_segment.getseg(start)
         if seg is None:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"{start:#x} is not in a segment", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"{start:#x} is not in a segment", "NOMATCH")
         end = seg.end_ea
     if end <= start:
-        raise IdaxError(Exit.USAGE, f"empty range {start:#x}..{end:#x}", "USAGE")
+        raise IcliError(Exit.USAGE, f"empty range {start:#x}..{end:#x}", "USAGE")
     k = kind("range")
     return Selection([Item(k, start, end=end, key=("range", start, end))], k)
 
@@ -223,7 +223,7 @@ def _func_at(ctx: Ctx, node: dict) -> Selection:
     for ea in addresses.evaluate(node["addr"]):
         it = fk.at(ctx, ea)
         if it is None:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no function contains {ea:#x}", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no function contains {ea:#x}", "NOMATCH")
         out.add(it)
     return out
 
@@ -242,7 +242,7 @@ def _record_item(rec: dict) -> Item:
                 try:
                     found = addresses.evaluate(psel.parse_addrexpr(v))
                     ea = found[0] if found else None
-                except IdaxError:
+                except IcliError:
                     ea = None
         if ea is not None:
             break
@@ -338,7 +338,7 @@ def _not(ctx: Ctx, node: dict) -> Selection:
     kname = (inner.kind.name if inner.kind and inner.kind.name not in ("address", "record", "range")
              else None) or _kind_of_node(node["arg"])
     if kname is None or kname in ("address", "range", "record"):
-        raise IdaxError(Exit.USAGE, "complement (!) needs a selector of a kind (functions, strings, ...)",
+        raise IcliError(Exit.USAGE, "complement (!) needs a selector of a kind (functions, strings, ...)",
                         "USAGE")
     k = kind(kname)
     return Selection((it for it in k.all(ctx) if it.key not in inner.items), k)
@@ -431,7 +431,7 @@ def _graph(ctx: Ctx, node: dict) -> Selection:
                         out.add(Item(ak, xb.to))
                         ok = xb.next_from()
         return out
-    raise IdaxError(Exit.USAGE, f"unknown graph operator {name}", "USAGE")
+    raise IcliError(Exit.USAGE, f"unknown graph operator {name}", "USAGE")
 
 
 def _uses_type(ctx: Ctx, node: dict) -> Selection:
@@ -454,11 +454,11 @@ def _uses_type(ctx: Ctx, node: dict) -> Selection:
 
 
 def _stdin(ctx: Ctx, node: dict) -> Selection:
-    raise IdaxError(Exit.USAGE, "'-' (standard input) cannot be used here", "USAGE")
+    raise IcliError(Exit.USAGE, "'-' (standard input) cannot be used here", "USAGE")
 
 
 def _file(ctx: Ctx, node: dict) -> Selection:
-    raise IdaxError(Exit.USAGE, f"@{node['path']}: selector files must be expanded by the client", "USAGE")
+    raise IcliError(Exit.USAGE, f"@{node['path']}: selector files must be expanded by the client", "USAGE")
 
 
 _OPS = {

@@ -8,7 +8,7 @@ import shlex
 import sys
 from typing import Sequence
 
-from ..errors import Exit, IdaxError, combine, usage
+from ..errors import Exit, IcliError, combine, usage
 from .options import GlobalOptions, add_global_options, add_load_options
 from .output import Emitter, OutputOptions
 from .registry import COMMANDS, GROUPS, Command, Invocation, load_commands
@@ -82,7 +82,7 @@ def parse(argv: list[str]) -> tuple[Command | None, argparse.Namespace, list[str
         try:
             os.chdir(ns.chdir)
         except OSError as error:
-            raise IdaxError(Exit.NOT_FOUND, f"-C {ns.chdir}: {error.strerror}", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"-C {ns.chdir}: {error.strerror}", "NOTFOUND")
     if not tail:
         return None, ns, [], []
     name, rest = tail[0], tail[1:]
@@ -160,7 +160,7 @@ def _forward_if_served(cmd: Command, ns: argparse.Namespace, inv: Invocation, g:
         else:
             inv.positionals()
             spec = inv.target_spec
-    except IdaxError:
+    except IcliError:
         return None  # the command itself will report the usage error
     return maybe_forward(spec, g, argv)
 
@@ -229,7 +229,7 @@ def run(argv: list[str]) -> int:
     try:
         status = cmd.run(inv) or 0
         return combine(status, inv.status)
-    except IdaxError as error:
+    except IcliError as error:
         save = error.status not in (Exit.INTERNAL, Exit.SCRIPT, Exit.INTERRUPTED)
         raise
     except BaseException:
@@ -247,7 +247,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     fmt = _peek_format(args)
     try:
         return int(run(args))
-    except IdaxError as error:
+    except IcliError as error:
         _report(error.status, error.code, error.message, fmt)
         return error.status
     except KeyboardInterrupt:

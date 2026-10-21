@@ -1,4 +1,4 @@
-"""Targets (CONCEPTS / Targets in idx(1)): databases, input files, container
+"""Targets (CONCEPTS / Targets in icli(1)): databases, input files, container
 members, vault:// databases and @handles."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..errors import Exit, IdaxError, usage
+from ..errors import Exit, IcliError, usage
 from . import cache
 from .env import cache_dir, env
 
@@ -73,7 +73,7 @@ def split_target(items: list[str], *, minimum_rest: int = 0) -> tuple[str | None
     if default is not None and len(items) >= minimum_rest:
         return default, items
     if not items:
-        raise IdaxError(Exit.USAGE, "no target: give a database or input file (or set ICLI_DB)", "USAGE")
+        raise IcliError(Exit.USAGE, "no target: give a database or input file (or set ICLI_DB)", "USAGE")
     return items[0], items[1:]
 
 
@@ -106,7 +106,7 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
     if spec.endswith(DB_SUFFIXES):
         p = Path(spec).expanduser().resolve()
         if not p.exists() and not p.with_suffix(".id0").exists():
-            raise IdaxError(Exit.NOT_FOUND, f"{spec}: database not found", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"{spec}: database not found", "NOTFOUND")
         if load:
             raise usage("load options apply to input files, not to an existing database "
                         f"({', '.join(sorted(load))})")
@@ -122,16 +122,16 @@ def resolve(spec: str, load: dict[str, Any], *, db: str | None = None, no_cache:
         spec, member = container, rest
     p = Path(spec).expanduser()
     if not p.exists():
-        raise IdaxError(Exit.NOT_FOUND, f"{spec}: no such file", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{spec}: no such file", "NOTFOUND")
     if not p.is_file() and not (p.is_dir() and member):
-        raise IdaxError(Exit.NOT_FOUND, f"{spec}: not a regular file", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{spec}: not a regular file", "NOTFOUND")
     p = p.resolve()
     if member:
         p = extract_member(p, member)
     try:
         sha = cache.file_sha256(p)
     except OSError as error:
-        raise IdaxError(Exit.NOT_FOUND, f"{spec}: {error.strerror}", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{spec}: {error.strerror}", "NOTFOUND")
     if db:
         dbp = Path(db).expanduser().resolve()
         return Target(original, p, dbp, None, load)
@@ -191,13 +191,13 @@ def extract_member(container: Path, member: str) -> Path:
     data: bytes | None = None
     if container.is_dir():
         # Foo.app/Contents/MacOS/Foo::arm64 style where the left side is a bundle dir
-        raise IdaxError(Exit.NOT_FOUND, f"{container}: is a directory", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{container}: is a directory", "NOTFOUND")
     slices = fat_slices(container)
     if slices:
         match = [s for s in slices if s["arch"] == member or str(s["index"]) == member]
         if not match:
             archs = ", ".join(s["arch"] for s in slices)
-            raise IdaxError(Exit.EMPTY_SELECTION, f"{container.name}: no slice {member!r} (has {archs})",
+            raise IcliError(Exit.EMPTY_SELECTION, f"{container.name}: no slice {member!r} (has {archs})",
                             "NOMATCH")
         s = match[0]
         with container.open("rb") as fh:
@@ -208,12 +208,12 @@ def extract_member(container: Path, member: str) -> Path:
             try:
                 data = z.read(member)
             except KeyError:
-                raise IdaxError(Exit.EMPTY_SELECTION, f"{container.name}: no member {member!r}", "NOMATCH")
+                raise IcliError(Exit.EMPTY_SELECTION, f"{container.name}: no member {member!r}", "NOMATCH")
     elif container.name.startswith("dyld_shared_cache"):
-        raise IdaxError(Exit.LOAD, f"{container.name}: select dyld cache modules with "
+        raise IcliError(Exit.LOAD, f"{container.name}: select dyld cache modules with "
                         f"--load-opt dsc.modules={member}", "LOAD")
     else:
-        raise IdaxError(Exit.LOAD, f"{container.name}: not a container (fat Mach-O, zip, apk)", "LOAD")
+        raise IcliError(Exit.LOAD, f"{container.name}: not a container (fat Mach-O, zip, apk)", "LOAD")
     dest_dir.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(".tmp")
     tmp.write_bytes(data)

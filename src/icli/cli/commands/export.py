@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ...lang import template as tmpl
 from ..registry import Command, Invocation, register
 
@@ -161,8 +161,8 @@ class Export(Command):
                 exc = path.with_suffix(".exc")
                 if exc.exists():
                     exc.unlink()
-                    raise IdaxError(Exit.CONFLICT, "pattern collisions (use icli sig make --collisions)", "CONFLICT")
-                raise IdaxError(Exit.LOAD, f"sigmake failed: {(r.stderr or r.stdout)[-500:]}", "FLAIR")
+                    raise IcliError(Exit.CONFLICT, "pattern collisions (use icli sig make --collisions)", "CONFLICT")
+                raise IcliError(Exit.LOAD, f"sigmake failed: {(r.stderr or r.stdout)[-500:]}", "FLAIR")
         finally:
             shutil.rmtree(work, ignore_errors=True)
         h = sig_header(path)

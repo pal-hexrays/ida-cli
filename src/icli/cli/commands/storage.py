@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_duration, parse_size
 from .. import cache
 from ..registry import Command, Invocation, register
@@ -22,7 +22,7 @@ def _db_path(spec: str) -> Path:
     if p.suffix not in (".i64", ".idb"):
         raise usage(f"{spec}: expected a database (.i64/.idb)")
     if not p.exists() and not p.with_suffix(".id0").exists():
-        raise IdaxError(Exit.NOT_FOUND, f"{spec}: database not found", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{spec}: database not found", "NOTFOUND")
     return p.resolve()
 
 
@@ -75,7 +75,7 @@ class Db(Command):
             raise usage("icli db create: expected one input file")
         out = Path(inv.args.output).expanduser().resolve()
         if out.exists():
-            raise IdaxError(Exit.CONFLICT, f"{out}: already exists", "CONFLICT")
+            raise IcliError(Exit.CONFLICT, f"{out}: already exists", "CONFLICT")
         inv.g.db = str(out)
         inv.target_spec = items[0]
         session = inv.open()
@@ -102,7 +102,7 @@ class Db(Command):
             pass
         comps = _components(db)
         if not comps:
-            raise IdaxError(Exit.INTERNAL, f"{db}: unpacking produced no components", "INTERR")
+            raise IcliError(Exit.INTERNAL, f"{db}: unpacking produced no components", "INTERR")
         inv.emit([{"_t": "db", "db": str(db), "components": [str(p) for p in comps]}])
         return 0
 
@@ -115,7 +115,7 @@ class Db(Command):
             inv.emit([{"_t": "db", "db": str(old), "status": "unchanged"}])
             return 0
         if out is not None and out.exists():
-            raise IdaxError(Exit.CONFLICT, f"{out}: already exists", "CONFLICT")
+            raise IcliError(Exit.CONFLICT, f"{out}: already exists", "CONFLICT")
         result = upgrade_idb(old, out)
         inv.emit([{"_t": "db", "db": str(result), "from": str(old), "status": "upgraded"}])
         return 0
@@ -129,7 +129,7 @@ class Db(Command):
         state = probe_database_state(str(db))
         rec = {"_t": "check", "db": str(db), "state": state["state"]}
         if state["state"] == "in_use":
-            raise IdaxError(Exit.LOCKED, f"{db}: in use by another process", "LOCKED")
+            raise IcliError(Exit.LOCKED, f"{db}: in use by another process", "LOCKED")
         if state["state"] == "crashed":
             rec["ok"] = False
             inv.emit([rec])
@@ -138,7 +138,7 @@ class Db(Command):
             with local_database(db, "", save=False):
                 pass
             rec["ok"] = True
-        except IdaxError as error:
+        except IcliError as error:
             rec.update({"ok": False, "error": error.message})
             inv.emit([rec])
             return Exit.CORRUPT
@@ -165,7 +165,7 @@ class Db(Command):
             raise usage(f"icli db tag: bad handle name {name!r}")
         p = Path(target).expanduser()
         if not target.startswith("vault://") and not p.exists():
-            raise IdaxError(Exit.NOT_FOUND, f"{target}: no such file", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"{target}: no such file", "NOTFOUND")
         resolved = target if target.startswith("vault://") else str(p.resolve())
         cache.set_handle(name, resolved)
         inv.emit([{"_t": "handle", "name": f"@{name}", "target": resolved}])
@@ -187,7 +187,7 @@ class Db(Command):
                 shutil.copy2(src, dst)
         else:
             if not src.exists():
-                raise IdaxError(Exit.LOCKED, f"{src}: only unpacked components exist (crashed or open?)", "LOCKED")
+                raise IcliError(Exit.LOCKED, f"{src}: only unpacked components exist (crashed or open?)", "LOCKED")
             shutil.copy2(src, dst)
         inv.emit([{"_t": "db", "db": str(dst), "from": str(src), "size": dst.stat().st_size}])
         return 0
@@ -201,7 +201,7 @@ class Db(Command):
         if owner is not None:
             alive = _pid_alive(owner.pid)
             if alive and not inv.args.force:
-                raise IdaxError(Exit.LOCKED, f"{db}: held by live process {owner.pid} (use --force)", "LOCKED")
+                raise IcliError(Exit.LOCKED, f"{db}: held by live process {owner.pid} (use --force)", "LOCKED")
             if alive:
                 os.kill(owner.pid, signal.SIGTERM)
                 wait_database_released(owner, timeout=30)
@@ -279,7 +279,7 @@ class Cache(Command):
         from ida_nexus import find_database_owner
 
         if find_database_owner(str(db)) is not None:
-            raise IdaxError(Exit.LOCKED, f"{db}: in use", "LOCKED")
+            raise IcliError(Exit.LOCKED, f"{db}: in use", "LOCKED")
         cache.remove_db_files(db)
         cache.forget(key)
 
@@ -310,7 +310,7 @@ class Cache(Command):
             try:
                 self._remove(Path(e["db"]), key)
                 out.append({"_t": "cache", "key": key, "input": e["input"], "removed": True, "size": e["size"]})
-            except IdaxError as error:
+            except IcliError as error:
                 out.append({"_t": "cache", "key": key, "removed": False, "error": error.message})
         inv.emit(out)
         return 0
@@ -326,7 +326,7 @@ def _hv() -> list[str]:
     override = env("HV")  # ICLI_HV: an alternative hv binary
     tool = Path(override) if override else (d / "hv" if d else None)
     if tool is None or not tool.exists():
-        raise IdaxError(Exit.LICENSE, "hv (IDA Teams client) not found in the IDA installation", "NOTOOL")
+        raise IcliError(Exit.LICENSE, "hv (IDA Teams client) not found in the IDA installation", "NOTOOL")
     cmd = [str(tool)]
     for flag, var in (("-h", "VAULT_HOST"), ("-u", "VAULT_USER"), ("-p", "VAULT_PASS"), ("-s", "VAULT_SITE")):
         if os.environ.get(var):
@@ -344,7 +344,7 @@ def run_hv(args: list[str], *, site: str | None = None) -> subprocess.CompletedP
         low = msg.lower()
         status = Exit.NETWORK if any(w in low for w in ("connect", "network", "host", "timed out", "refused",
                                                          "login", "password", "unreachable")) else Exit.USAGE
-        raise IdaxError(status, f"hv {' '.join(args[:2])}: {msg[-800:] or f'exit {res.returncode}'}", "VAULT")
+        raise IcliError(status, f"hv {' '.join(args[:2])}: {msg[-800:] or f'exit {res.returncode}'}", "VAULT")
     return res
 
 
@@ -436,7 +436,7 @@ class Vault(Command):
         inv.target_spec = str(p)
         session = inv.open()
         if session.state() == "analyzing":
-            raise IdaxError(Exit.STATE, f"{p}: analysis incomplete; commit with --force", "STATE")
+            raise IcliError(Exit.STATE, f"{p}: analysis incomplete; commit with --force", "STATE")
 
 
 @register
@@ -473,7 +473,7 @@ class Serve(Command):
         for t in targets:
             rec = srv.server_for(t.db)
             if rec is not None:
-                raise IdaxError(Exit.LOCKED, f"{t.db}: already served by pid {rec['pid']}", "LOCKED")
+                raise IcliError(Exit.LOCKED, f"{t.db}: already served by pid {rec['pid']}", "LOCKED")
         if a.listen and not a.token_file:
             raise usage("icli serve --listen requires --token-file")
         token = Path(a.token_file).read_text().strip() if a.token_file else None
@@ -504,6 +504,6 @@ class Serve(Command):
                           for t in targets])
                 return 0
             if proc.poll() is not None:
-                raise IdaxError(Exit.LOAD, f"server exited with {proc.returncode}; see {log}", "SERVE")
+                raise IcliError(Exit.LOAD, f"server exited with {proc.returncode}; see {log}", "SERVE")
             time.sleep(0.2)
-        raise IdaxError(Exit.TIMEOUT, "server did not start in time", "TIMEOUT")
+        raise IcliError(Exit.TIMEOUT, "server did not start in time", "TIMEOUT")

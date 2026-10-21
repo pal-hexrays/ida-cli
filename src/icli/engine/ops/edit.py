@@ -9,7 +9,7 @@ import ida_funcs
 import ida_idaapi
 import ida_name
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang import template as tmpl
 from .. import edits, edits_code  # noqa: F401  (edits_code registers handlers)
 from ..context import Ctx
@@ -36,7 +36,7 @@ def finish(ctx: Ctx, out: list[dict]) -> list[dict]:
 def _addressable(sel: Any) -> list[Item]:
     items = [it for it in sel if isinstance(it.ea, int)]
     if not items:
-        raise IdaxError(Exit.EMPTY_SELECTION, "selection contains no address", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "selection contains no address", "NOMATCH")
     return items
 
 
@@ -79,7 +79,7 @@ def rename(ctx: Ctx, selectors: list[dict] | None = None, name: str | None = Non
     for it in _addressable(sel):
         new = "" if clear else render(name or "", it, ctx)
         if not clear and not new:
-            raise IdaxError(Exit.USAGE, "empty name (use --clear to restore the dummy name)", "USAGE")
+            raise IcliError(Exit.USAGE, "empty name (use --clear to restore the dummy name)", "USAGE")
         out.append(_rename_one(ctx, it, new or None, opts, unique, force))
     return finish(ctx, out)
 
@@ -96,16 +96,16 @@ def _rename_one(ctx: Ctx, it: Item, new: str | None, opts: dict, unique: bool, f
 
 def _parse_sub(expr: str) -> tuple["re.Pattern[str]", str, str]:
     if len(expr) < 4 or expr[0] != "s":
-        raise IdaxError(Exit.USAGE, f"--regex expects s/re/repl/[flags], not {expr!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"--regex expects s/re/repl/[flags], not {expr!r}", "USAGE")
     delim = expr[1]
     parts = re.split(rf"(?<!\\){re.escape(delim)}", expr[2:])
     if len(parts) != 3:
-        raise IdaxError(Exit.USAGE, f"--regex expects s/re/repl/[flags], not {expr!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"--regex expects s/re/repl/[flags], not {expr!r}", "USAGE")
     pat, repl, flags = parts
     try:
         rx = re.compile(pat, re.I if "i" in flags else 0)
     except re.error as error:
-        raise IdaxError(Exit.USAGE, f"--regex: {error}", "USAGE")
+        raise IcliError(Exit.USAGE, f"--regex: {error}", "USAGE")
     repl = re.sub(r"\$(\d)", r"\\\1", repl)
     return rx, repl, flags
 
@@ -117,7 +117,7 @@ def _rename_lvars(ctx: Ctx, func_sel: list[dict], names: list[dict], new: str | 
 
     funcs = list(select.functions_of(ctx, selection(ctx, func_sel)))
     if len(funcs) != 1:
-        raise IdaxError(Exit.USAGE, "--lvar needs exactly one function", "USAGE")
+        raise IcliError(Exit.USAGE, "--lvar needs exactly one function", "USAGE")
     f = funcs[0]
     out = []
     for node in names:
@@ -129,7 +129,7 @@ def _rename_lvars(ctx: Ctx, func_sel: list[dict], names: list[dict], new: str | 
                             "before": new, "after": new, "status": "unchanged", "name": new, "func":
                             ida_funcs.get_func_name(f.ea)})
                 continue
-            raise IdaxError(Exit.EMPTY_SELECTION, f"{ida_funcs.get_func_name(f.ea)}: no local variable {old!r}",
+            raise IcliError(Exit.EMPTY_SELECTION, f"{ida_funcs.get_func_name(f.ea)}: no local variable {old!r}",
                             "NOMATCH")
         key = edits.lvar_key(lv)
         rec = edits.change(ctx, "lvar_name", f.ea, key, new, force=force,
@@ -141,14 +141,14 @@ def _rename_lvars(ctx: Ctx, func_sel: list[dict], names: list[dict], new: str | 
 def _plain_name(node: dict) -> str:
     if node.get("op") == "addr" and len(node["expr"]["terms"]) == 1 and "name" in node["expr"]["terms"][0][1]:
         return node["expr"]["terms"][0][1]["name"]
-    raise IdaxError(Exit.USAGE, "--lvar: give the local variable's current name", "USAGE")
+    raise IcliError(Exit.USAGE, "--lvar: give the local variable's current name", "USAGE")
 
 
 @op("comment")
 def comment(ctx: Ctx, selectors: list[dict], text: str, kind: str = "regular", append: bool = False,
             force: bool = False) -> list[dict]:
     if kind not in edits.COMMENT_KINDS:
-        raise IdaxError(Exit.USAGE, f"--kind {kind}: one of {', '.join(edits.COMMENT_KINDS)}", "USAGE")
+        raise IcliError(Exit.USAGE, f"--kind {kind}: one of {', '.join(edits.COMMENT_KINDS)}", "USAGE")
     sel = selection(ctx, selectors)
     out = []
     for it in _addressable(sel):
@@ -156,7 +156,7 @@ def comment(ctx: Ctx, selectors: list[dict], text: str, kind: str = "regular", a
         if kind == "function":
             f = ida_funcs.get_func(ea)
             if f is None:
-                raise IdaxError(Exit.EMPTY_SELECTION, f"no function contains {ea:#x}", "NOMATCH")
+                raise IcliError(Exit.EMPTY_SELECTION, f"no function contains {ea:#x}", "NOMATCH")
             ea = f.start_ea
         value = render(text, it, ctx)
         if append and value:
@@ -174,7 +174,7 @@ def comment(ctx: Ctx, selectors: list[dict], text: str, kind: str = "regular", a
 def tag(ctx: Ctx, selectors: list[dict], tags: list[str], remove: bool = False, color: str | None = None,
         force: bool = False) -> list[dict]:
     if color is not None and not re.fullmatch(r"[0-9a-fA-F]{6}", color):
-        raise IdaxError(Exit.USAGE, f"--color {color}: expected rrggbb", "USAGE")
+        raise IcliError(Exit.USAGE, f"--color {color}: expected rrggbb", "USAGE")
     sel = selection(ctx, selectors)
     out = []
     for it in _addressable(sel):

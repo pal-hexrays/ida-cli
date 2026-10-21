@@ -13,7 +13,7 @@ import ida_offset
 import ida_typeinf
 import ida_ua
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from . import typesupport
 from .edits import HANDLERS, Handler, _fail
 from .kinds.functions import FLAG_BITS, FLAG_NAMES
@@ -81,7 +81,7 @@ def _get_flags(ea: int, key: Any) -> list[str] | None:
 def _set_flags(ea: int, key: Any, value: Any, opts: dict) -> None:
     f = ida_funcs.get_func(ea)
     if f is None:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
     managed = 0
     for bit in FLAG_BITS.values():
         managed |= bit
@@ -199,12 +199,12 @@ def _set_item(ea: int, key: Any, value: Any, opts: dict) -> None:
     elif k == "struct":
         tif = typesupport.find_local(value["type"])
         if tif is None:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no local type {value['type']!r}", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no local type {value['type']!r}", "NOMATCH")
         ok = ida_bytes.create_struct(ea, tif.get_size(), tif.get_tid(), True)
     elif k == "align":
         ok = ida_bytes.create_align(ea, int(value.get("size") or 0), 0)
     else:
-        raise IdaxError(Exit.USAGE, f"unknown item kind {k!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown item kind {k!r}", "USAGE")
     if not ok:
         raise _fail(f"cannot make {k} at {ea:#x}", Exit.CONFLICT, "BADITEM")
     if value.get("offset"):
@@ -275,12 +275,12 @@ def _set_operand(ea: int, key: int, value: Any, opts: dict) -> None:
     elif kind == "enum":
         tif = typesupport.find_local(arg)
         if tif is None or not tif.is_enum():
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no enum {arg!r} in local types", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no enum {arg!r} in local types", "NOMATCH")
         ok = ida_bytes.op_enum(ea, n, tif.get_tid(), 0)
     elif kind == "stroff":
         tif = typesupport.find_local(arg)
         if tif is None or not tif.is_udt():
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no struct {arg!r} in local types", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no struct {arg!r} in local types", "NOMATCH")
         insn = ida_ua.insn_t()
         ida_ua.decode_insn(insn, ea)
         path = ida_typeinf.tid_array(1) if hasattr(ida_typeinf, "tid_array") else None
@@ -292,7 +292,7 @@ def _set_operand(ea: int, key: int, value: Any, opts: dict) -> None:
     elif kind == "stkvar":
         ok = ida_bytes.op_stkvar(ea, n)
     else:
-        raise IdaxError(Exit.USAGE, f"--as {value}: one of hex, dec, oct, bin, char, offset[:base], enum:NAME, "
+        raise IcliError(Exit.USAGE, f"--as {value}: one of hex, dec, oct, bin, char, offset[:base], enum:NAME, "
                         "stroff:STRUCT, stkvar, default", "USAGE")
     if not ok:
         raise _fail(f"cannot represent operand {n} at {ea:#x} as {value}", Exit.CONFLICT, "BADOPERAND")
@@ -324,7 +324,7 @@ def _set_callsite(ea: int, key: Any, value: Any, opts: dict) -> None:
         if tif.is_funcptr():
             tif = tif.get_pointed_object()
         else:
-            raise IdaxError(Exit.USAGE, f"{value!r} is not a function prototype", "BADDECL")
+            raise IcliError(Exit.USAGE, f"{value!r} is not a function prototype", "BADDECL")
     if not ida_nalt.set_op_tinfo(ea, 0, tif):
         raise _fail(f"cannot set call type at {ea:#x}")
     ida_typeinf.apply_callee_tinfo(ea, tif)

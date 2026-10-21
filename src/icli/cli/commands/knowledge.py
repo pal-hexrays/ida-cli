@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_address_number, parse_int
 from ..env import idadir, idausr
 from ..registry import Command, Invocation, register
@@ -21,7 +21,7 @@ from .edit import Edit
 def _need_file(p: str) -> Path:
     path = Path(p).expanduser()
     if not path.exists():
-        raise IdaxError(Exit.NOT_FOUND, f"{p}: no such file", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{p}: no such file", "NOTFOUND")
     return path.resolve()
 
 
@@ -79,7 +79,7 @@ def _flair(tool: str) -> Path:
     d = idadir()
     p = d / "tools" / "flair" / tool if d else None
     if p is None or not p.exists():
-        raise IdaxError(Exit.LICENSE, f"FLAIR tool {tool} not found in the IDA installation", "NOTOOL")
+        raise IcliError(Exit.LICENSE, f"FLAIR tool {tool} not found in the IDA installation", "NOTOOL")
     return p
 
 
@@ -97,7 +97,7 @@ def _library_parser(lib: Path) -> str:
 def _run(cmd: list[str], what: str) -> subprocess.CompletedProcess:
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        raise IdaxError(Exit.LOAD, f"{what} failed: {(res.stderr or res.stdout).strip()[-800:]}", "FLAIR")
+        raise IcliError(Exit.LOAD, f"{what} failed: {(res.stderr or res.stdout).strip()[-800:]}", "FLAIR")
     return res
 
 
@@ -250,13 +250,13 @@ class Sig(Edit):
                 if a.collisions == "fail":
                     groups = resolve_exc(exc, "fail")
                     exc.unlink()
-                    raise IdaxError(Exit.CONFLICT, f"{groups} collision group(s) (use --collisions skip|first)",
+                    raise IcliError(Exit.CONFLICT, f"{groups} collision group(s) (use --collisions skip|first)",
                                     "CONFLICT")
                 collisions = resolve_exc(exc, a.collisions)
                 res = subprocess.run(cmd, capture_output=True, text=True, cwd=work)
                 exc.unlink(missing_ok=True)
             if not out.exists():
-                raise IdaxError(Exit.LOAD, f"sigmake failed: {(res.stderr or res.stdout).strip()[-800:]}", "FLAIR")
+                raise IcliError(Exit.LOAD, f"sigmake failed: {(res.stderr or res.stdout).strip()[-800:]}", "FLAIR")
             h = sig_header(out)
             inv.emit([{"_t": "sig", "path": str(out), "title": h.get("title"), "functions": h.get("functions"),
                        "collisions": collisions, "policy": a.collisions}])
@@ -274,7 +274,7 @@ def _load_til(name: str) -> Any:
     try:
         return ida_typeinf.load_til(name)
     except RuntimeError as error:
-        raise IdaxError(Exit.NOT_FOUND, f"{name}: {error}", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{name}: {error}", "NOTFOUND")
 
 
 def store_til(til: Any, path: Path) -> bool:
@@ -344,13 +344,13 @@ class Til(Command):
             path = _need_file(a.items[0]) if ("/" in a.items[0] or a.items[0].endswith(".til")) else a.items[0]
             til = _load_til(str(path))
             if til is None:
-                raise IdaxError(Exit.NOT_FOUND, f"{a.items[0]}: cannot load type library", "NOTFOUND")
+                raise IcliError(Exit.NOT_FOUND, f"{a.items[0]}: cannot load type library", "NOTFOUND")
             names = a.items[1:] or list(til.type_names)
             parts = []
             for n in names:
                 tif = ida_typeinf.tinfo_t()
                 if not tif.get_named_type(til, n):
-                    raise IdaxError(Exit.EMPTY_SELECTION, f"{a.items[0]}: no type {n!r}", "NOMATCH")
+                    raise IcliError(Exit.EMPTY_SELECTION, f"{a.items[0]}: no type {n!r}", "NOMATCH")
                 flags = ida_typeinf.PRTYPE_MULTI | ida_typeinf.PRTYPE_TYPE | ida_typeinf.PRTYPE_SEMI | \
                     ida_typeinf.PRTYPE_DEF
                 parts.append(tif._print(n, flags) or f"/* {n} */")
@@ -379,10 +379,10 @@ class Til(Command):
                     n = ida_typeinf.parse_decls(til, str(h), None, ida_typeinf.HTI_FIL)
                 errors += max(n, 0)
             if errors:
-                raise IdaxError(Exit.USAGE, f"{errors} error(s) parsing headers", "BADDECL")
+                raise IcliError(Exit.USAGE, f"{errors} error(s) parsing headers", "BADDECL")
             ida_typeinf.compact_til(til)
             if not store_til(til, out):
-                raise IdaxError(Exit.INTERNAL, f"{out}: cannot write", "INTERR")
+                raise IcliError(Exit.INTERNAL, f"{out}: cannot write", "INTERR")
             inv.emit([{"_t": "til", "path": str(out), "types": len(list(til.type_names))}])
             return 0
         if sub == "merge":
@@ -395,13 +395,13 @@ class Til(Command):
             for x in a.items:
                 src = _load_til(str(_need_file(x)))
                 if src is None:
-                    raise IdaxError(Exit.NOT_FOUND, f"{x}: cannot load type library", "NOTFOUND")
+                    raise IcliError(Exit.NOT_FOUND, f"{x}: cannot load type library", "NOTFOUND")
                 for n in src.type_names:
                     if ida_typeinf.copy_named_type(merged, src, n):
                         count += 1
             ida_typeinf.compact_til(merged)
             if not store_til(merged, out):
-                raise IdaxError(Exit.INTERNAL, f"{out}: cannot write", "INTERR")
+                raise IcliError(Exit.INTERNAL, f"{out}: cannot write", "INTERR")
             inv.emit([{"_t": "til", "path": str(out), "types": count}])
             return 0
         raise usage(f"icli til: unknown subcommand {sub}")

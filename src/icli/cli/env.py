@@ -14,12 +14,9 @@ from pathlib import Path
 
 
 def env(name: str, default: str | None = None) -> str | None:
-    """``ICLI_<name>``, then the manual's ``IDX_<name>``."""
-    for prefix in ("ICLI_", "IDX_"):
-        v = os.environ.get(prefix + name)
-        if v is not None and v != "":
-            return v
-    return default
+    """``ICLI_<name>``."""
+    v = os.environ.get("ICLI_" + name)
+    return v if v else default
 
 
 def idausr() -> Path:

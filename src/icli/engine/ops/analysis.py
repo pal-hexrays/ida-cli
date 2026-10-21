@@ -14,7 +14,7 @@ import ida_loader
 import ida_name
 import ida_segment
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import decomp
 from ..context import A, Ctx
 from ..rpc import op
@@ -30,7 +30,7 @@ def settings_hexrays(ctx: Ctx, directives: list[str]) -> list:
 
     for d in directives:
         if not ida_hexrays.change_hexrays_config(d):
-            raise IdaxError(Exit.USAGE, f"--set hexrays: rejected {d!r}", "USAGE")
+            raise IcliError(Exit.USAGE, f"--set hexrays: rejected {d!r}", "USAGE")
     return []
 
 
@@ -49,7 +49,7 @@ def create_segment(name: str, start: int, end: int, cls: str | None = None, perm
         p |= ida_segment.SEGPERM_EXEC if "x" in perm else 0
         seg.perm = p
     if not ida_segment.add_segm_ex(seg, name, cls or "DATA", ida_segment.ADDSEG_NOSREG):
-        raise IdaxError(Exit.LOAD, f"cannot create segment {name} {start:#x}-{end:#x}", "LOAD")
+        raise IcliError(Exit.LOAD, f"cannot create segment {name} {start:#x}-{end:#x}", "LOAD")
     if file:
         data = Path(file).read_bytes()[offset: offset + (end - start)]
         ida_bytes.put_bytes(start, data)
@@ -69,7 +69,7 @@ def load_svd(path: str) -> int:
     count = 0
     peripherals = root.find("peripherals")
     if peripherals is None:
-        raise IdaxError(Exit.LOAD, f"{path}: no <peripherals>", "LOAD")
+        raise IcliError(Exit.LOAD, f"{path}: no <peripherals>", "LOAD")
     by_name = {p.findtext("name"): p for p in peripherals.findall("peripheral")}
     for p in peripherals.findall("peripheral"):
         name = p.findtext("name") or "PERIPH"
@@ -135,7 +135,7 @@ def load_post(ctx: Ctx, **post: Any) -> list[dict]:
 
         idx = ida_nalt.add_encoding(post["encoding"])
         if idx <= 0:
-            raise IdaxError(Exit.USAGE, f"--encoding {post['encoding']}: unknown encoding", "USAGE")
+            raise IcliError(Exit.USAGE, f"--encoding {post['encoding']}: unknown encoding", "USAGE")
         ida_nalt.set_default_encoding_idx(ida_nalt.BPU_1B, idx)
         out.append({"_t": "load", "option": "encoding", "value": post["encoding"]})
     for src in post.get("symbols") or []:
@@ -170,7 +170,7 @@ def analyze_prepare(ctx: Ctx, sigs: list[str] | None = None, tils: list[str] | N
         import ida_typeinf
 
         if ida_typeinf.add_til(t, ida_typeinf.ADDTIL_DEFAULT) == ida_typeinf.ADDTIL_FAILED:
-            raise IdaxError(Exit.NOT_FOUND, f"--til {t}: type library not found", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"--til {t}: type library not found", "NOTFOUND")
         out.append({"_t": "til", "name": t, "status": "added"})
     if reanalyze:
         from .. import lifecycle
@@ -258,4 +258,4 @@ def analyze_pass(ctx: Ctx, name: str) -> dict:
 
         recs = lumina_pull(ctx, None, apply=True)
         return {"_t": "pass", "name": name, "status": "ok", "applied": len(recs)}
-    raise IdaxError(Exit.USAGE, f"unknown pass {name}", "USAGE")
+    raise IcliError(Exit.USAGE, f"unknown pass {name}", "USAGE")

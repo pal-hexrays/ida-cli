@@ -55,7 +55,6 @@ def icli(cache_dir, workdir):
         e = dict(os.environ)
         e["ICLI_CACHE_DIR"] = str(cache_dir)
         e.pop("ICLI_DB", None)
-        e.pop("IDX_DB", None)
         e.update(env or {})
         proc = subprocess.run([sys.executable, "-m", "icli", *args], input=stdin, capture_output=True,
                               text=True, cwd=cwd or workdir, env=e, timeout=timeout)

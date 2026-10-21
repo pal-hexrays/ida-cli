@@ -7,7 +7,7 @@ from typing import Any
 import ida_funcs
 import ida_name
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang.graph import render
 from .. import select
 from ..context import A, Ctx
@@ -46,9 +46,9 @@ def xrefs(ctx: Ctx, selectors: list[dict], direction: str = "to", types: list[st
           depth: int = 1, flow: bool = False) -> Any:
     bad = [t for t in types or [] if t not in XREF_TYPES]
     if bad:
-        raise IdaxError(Exit.USAGE, f"--type: unknown {', '.join(bad)} (one of {', '.join(XREF_TYPES)})", "USAGE")
+        raise IcliError(Exit.USAGE, f"--type: unknown {', '.join(bad)} (one of {', '.join(XREF_TYPES)})", "USAGE")
     if depth < 1:
-        raise IdaxError(Exit.USAGE, "--depth must be >= 1", "USAGE")
+        raise IcliError(Exit.USAGE, "--depth must be >= 1", "USAGE")
     sel = selection(ctx, selectors)
     xk = KINDS["xref"]
     frontier = _targets(ctx, sel, direction)
@@ -88,7 +88,7 @@ def callgraph(ctx: Ctx, selectors: list[dict], direction: str = "callees", depth
     sel = selection(ctx, selectors)
     roots = list(select.functions_of(ctx, sel))
     if not roots:
-        raise IdaxError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
     max_depth = depth if depth is not None else 1 << 30
     edges: list[dict] = []
     nodes: dict[int, int] = {r.ea: 0 for r in roots}
@@ -121,7 +121,7 @@ def callgraph(ctx: Ctx, selectors: list[dict], direction: str = "callees", depth
 
     if graph:
         if graph not in ("dot", "gdl", "json"):
-            raise IdaxError(Exit.USAGE, f"--graph {graph}: one of dot, gdl, json", "USAGE")
+            raise IcliError(Exit.USAGE, f"--graph {graph}: one of dot, gdl, json", "USAGE")
         gnodes = [{"id": nm(ea), "label": nm(ea), "ea": A(ea), "depth": d} for ea, d in nodes.items()]
         gedges = [{"src": nm(e["src"]), "dst": nm(e["dst"]), "depth": e["depth"]} for e in edges]
         name = ",".join(nm(r.ea) for r in roots)

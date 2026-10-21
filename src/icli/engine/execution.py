@@ -22,7 +22,7 @@ import ida_bytes
 import ida_idaapi
 import ida_idp
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from . import journal, typesupport
 from .context import Addr, Ctx
 
@@ -221,7 +221,7 @@ def run(ctx: Ctx, code: str, *, filename: str = "<icli>", args: list[str] | None
     if changes and (ctx.opts.read_only or no_save):
         rollback(ctx, changes)
         if ctx.opts.read_only:
-            raise IdaxError(Exit.READ_ONLY, f"the code modified the database ({len(changes)} change(s)); "
+            raise IcliError(Exit.READ_ONLY, f"the code modified the database ({len(changes)} change(s)); "
                             "rolled back", "READONLY")
     elif changes:
         sha = hashlib.sha256(code.encode()).hexdigest()

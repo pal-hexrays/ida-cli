@@ -13,7 +13,7 @@ import ida_idp
 import ida_nalt
 import ida_typeinf
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import edits, select, typesupport
 from ..context import A, Ctx
 from ..rpc import op
@@ -33,13 +33,13 @@ def type_set(ctx: Ctx, selectors: list[dict], decl: str, propagate: bool = False
     if lvar is not None:
         funcs = list(select.functions_of(ctx, selection(ctx, lvar)))
         if len(funcs) != 1:
-            raise IdaxError(Exit.USAGE, "--lvar needs exactly one function", "USAGE")
+            raise IcliError(Exit.USAGE, "--lvar needs exactly one function", "USAGE")
         f = funcs[0]
         for node in selectors:
             name = _plain_name(node)
             lv = edits.find_lvar(f.ea, name=name)
             if lv is None:
-                raise IdaxError(Exit.EMPTY_SELECTION, f"no local variable {name!r}", "NOMATCH")
+                raise IcliError(Exit.EMPTY_SELECTION, f"no local variable {name!r}", "NOMATCH")
             out.append(edits.change(ctx, "lvar_type", f.ea, edits.lvar_key(lv), decl, force=force,
                                     record={"type": decl, "name": name}))
         return finish(ctx, out)
@@ -125,12 +125,12 @@ def type_add(ctx: Ctx, text: str, parser: str = "clang", args: list[str] | None 
 
     if errors:
         rollback()
-        raise IdaxError(Exit.USAGE, f"{errors} error(s) parsing declarations", "BADDECL")
+        raise IcliError(Exit.USAGE, f"{errors} error(s) parsing declarations", "BADDECL")
     conflicts = [n for n in changed if n in before]
     if (conflicts and not (replace or ctx.opts.force)) or ctx.opts.dry_run:
         rollback()
         if conflicts and not (replace or ctx.opts.force):
-            raise IdaxError(Exit.CONFLICT, f"conflicting definition of {', '.join(conflicts)} "
+            raise IcliError(Exit.CONFLICT, f"conflicting definition of {', '.join(conflicts)} "
                             "(use --replace)", "CONFLICT")
     out = []
     for n in changed:
@@ -166,7 +166,7 @@ def type_import(ctx: Ctx, source: str, names: list[str], definitions: dict[str, 
     else:
         til = ida_typeinf.load_til(source)
         if til is None:
-            raise IdaxError(Exit.NOT_FOUND, f"{source}: type library not found", "NOTFOUND")
+            raise IcliError(Exit.NOT_FOUND, f"{source}: type library not found", "NOTFOUND")
         missing = []
         for n in names:
             tif = ida_typeinf.tinfo_t()
@@ -176,7 +176,7 @@ def type_import(ctx: Ctx, source: str, names: list[str], definitions: dict[str, 
                 missing.append(n)
         ida_typeinf.free_til(til)
     if missing:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"{source}: no type {', '.join(missing)}", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"{source}: no type {', '.join(missing)}", "NOMATCH")
     return finish(ctx, [edits.change(ctx, "local_type", None, n, d, force=replace, record={"name": n})
                         for n, d in defs])
 
@@ -187,7 +187,7 @@ def type_definitions(ctx: Ctx, names: list[str]) -> list[dict]:
     for n in names:
         tif = typesupport.find_local(n)
         if tif is None:
-            raise IdaxError(Exit.EMPTY_SELECTION, f"no local type {n!r}", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, f"no local type {n!r}", "NOMATCH")
         out.append({"_t": "type", "name": n, "decl": typesupport.type_definition(tif, n)})
     return out
 
@@ -212,7 +212,7 @@ def type_dump(ctx: Ctx, names: list[str] | None = None) -> list[dict]:
         for n in names:
             o = ida_typeinf.get_type_ordinal(til, n)
             if not o:
-                raise IdaxError(Exit.EMPTY_SELECTION, f"no local type {n!r}", "NOMATCH")
+                raise IcliError(Exit.EMPTY_SELECTION, f"no local type {n!r}", "NOMATCH")
             ordinals.append(o)
     else:
         ordinals = [o for o, _, _ in typesupport.local_types()]
@@ -251,7 +251,7 @@ def type_callsite(ctx: Ctx, selectors: list[dict], decl: str, force: bool = Fals
 
         insn = ida_ua.insn_t()
         if not ida_ua.decode_insn(insn, it.ea) or not ida_idp.is_call_insn(insn):
-            raise IdaxError(Exit.USAGE, f"{it.ea:#x} is not a call instruction", "USAGE")
+            raise IcliError(Exit.USAGE, f"{it.ea:#x} is not a call instruction", "USAGE")
         out.append(edits.change(ctx, "callsite", it.ea, None, render(decl, it, ctx), force=force,
                                 record={"type": decl}))
     return finish(ctx, out)
@@ -297,7 +297,7 @@ def func_set(ctx: Ctx, selectors: list[dict], start: int | None = None, end: int
                 sign, name = (fl[0], fl[1:]) if fl[0] in "+-" else ("+", fl)
                 name = name.lower()
                 if name not in FLAG_BITS:
-                    raise IdaxError(Exit.USAGE, f"--flags: unknown flag {name!r} (one of "
+                    raise IcliError(Exit.USAGE, f"--flags: unknown flag {name!r} (one of "
                                     f"{', '.join(sorted(FLAG_BITS))})", "USAGE")
                 if sign == "+":
                     current.add(name)
@@ -316,7 +316,7 @@ def func_tail(ctx: Ctx, selectors: list[dict], add: list[int] | None = None, rem
     sel = selection(ctx, selectors)
     funcs = list(select.functions_of(ctx, sel))
     if len(funcs) != 1:
-        raise IdaxError(Exit.USAGE, "func tail needs exactly one function", "USAGE")
+        raise IcliError(Exit.USAGE, "func tail needs exactly one function", "USAGE")
     ea = funcs[0].ea
     out = []
     if add:
@@ -336,7 +336,7 @@ def _set_frame(ea: int, key: Any, value: Any, opts: dict) -> None:
 
     f = ida_funcs.get_func(ea)
     if not ida_frame.set_frame_size(f, int(value), f.frregs, f.argsize):
-        raise IdaxError(Exit.CONFLICT, f"cannot set frame size of {ea:#x}", "CONFLICT")
+        raise IcliError(Exit.CONFLICT, f"cannot set frame size of {ea:#x}", "CONFLICT")
 
 
 edits.HANDLERS["func_frame"] = edits.Handler(_get_frame, _set_frame)
@@ -366,18 +366,18 @@ def make(ctx: Ctx, kind: str, selectors: list[dict], count: int | None = None, t
         elif kind == "string":
             strtype = getattr(ida_nalt, _ENCODINGS.get((encoding or "utf-8").lower(), ""), None)
             if strtype is None:
-                raise IdaxError(Exit.USAGE, f"--encoding {encoding}: one of {', '.join(_ENCODINGS)}", "USAGE")
+                raise IcliError(Exit.USAGE, f"--encoding {encoding}: one of {', '.join(_ENCODINGS)}", "USAGE")
             value = {"kind": "string", "strtype": strtype, "size": size or 0}
         elif kind == "array":
             if not count or count < 1:
-                raise IdaxError(Exit.USAGE, "make array needs --count N (N >= 1)", "USAGE")
+                raise IcliError(Exit.USAGE, "make array needs --count N (N >= 1)", "USAGE")
             current = edits.HANDLERS["item"].get(ea, None)
             elem = current.get("of") or (current["kind"] if current["kind"] in (
                 "byte", "word", "dword", "qword", "float", "double") else "byte")
             value = {"kind": "array", "of": type or elem, "count": count}
         elif kind == "struct":
             if not type:
-                raise IdaxError(Exit.USAGE, "make struct needs --type NAME", "USAGE")
+                raise IcliError(Exit.USAGE, "make struct needs --type NAME", "USAGE")
             value = {"kind": "struct", "type": type}
         elif kind == "offset":
             ptr = "qword" if ida_ida.inf_is_64bit() else "dword"
@@ -385,7 +385,7 @@ def make(ctx: Ctx, kind: str, selectors: list[dict], count: int | None = None, t
         elif kind == "align":
             value = {"kind": "align", "size": size or 0}
         else:
-            raise IdaxError(Exit.USAGE, f"unknown item kind {kind!r}", "USAGE")
+            raise IcliError(Exit.USAGE, f"unknown item kind {kind!r}", "USAGE")
         out.append(edits.change(ctx, "item", ea, None, value, force=True))
     return finish(ctx, out)
 
@@ -398,10 +398,10 @@ def _jumptable(ctx: Ctx, ea: int, spec: str) -> dict:
     for part in spec.split(","):
         k, eq, v = part.partition("=")
         if not eq or k not in ("table", "count", "elsize", "base", "default", "lowcase"):
-            raise IdaxError(Exit.USAGE, f"--jumptable: bad item {part!r}", "USAGE")
+            raise IcliError(Exit.USAGE, f"--jumptable: bad item {part!r}", "USAGE")
         fields[k] = parse_int(v)
     if "table" not in fields or "count" not in fields:
-        raise IdaxError(Exit.USAGE, "--jumptable needs table= and count=", "USAGE")
+        raise IcliError(Exit.USAGE, "--jumptable needs table= and count=", "USAGE")
     ctx.require_writable()
     si = ida_nalt.switch_info_t()
     si.jumps = fields["table"]
@@ -453,9 +453,9 @@ def _nop_bytes(ea: int, length: int) -> bytes:
     else:
         ok, unit = _assemble(ea, "nop")
         if not ok:
-            raise IdaxError(Exit.USAGE, f"no NOP encoding known for processor {proc}", "USAGE")
+            raise IcliError(Exit.USAGE, f"no NOP encoding known for processor {proc}", "USAGE")
     if length % len(unit):
-        raise IdaxError(Exit.USAGE, f"{ea:#x}: item length {length} is not a multiple of the NOP size", "USAGE")
+        raise IcliError(Exit.USAGE, f"{ea:#x}: item length {length} is not a multiple of the NOP size", "USAGE")
     return unit * (length // len(unit))
 
 
@@ -487,7 +487,7 @@ def patch_asm(ctx: Ctx, selectors: list[dict], lines: list[str]) -> list[dict]:
         for line in lines:
             ok, data = _assemble(ea, line)
             if not ok or not data:
-                raise IdaxError(Exit.USAGE, f"{ea:#x}: cannot assemble {line!r} (processor "
+                raise IcliError(Exit.USAGE, f"{ea:#x}: cannot assemble {line!r} (processor "
                                 f"{ida_ida.inf_get_procname()} may have no assembler)", "USAGE")
             out.append(edits.change(ctx, "bytes", ea, len(data), data.hex(), force=True, record={"asm": line}))
             import ida_ua

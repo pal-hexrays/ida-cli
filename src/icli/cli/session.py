@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from .target import Target
 
 STATES = ["loaded", "analyzing", "analyzed", "enriched"]
@@ -150,14 +150,14 @@ class Session:
         try:
             self.handle = self._open_with_retry(DatabaseHandle, path, options)
         except DatabaseBusyError as error:
-            raise IdaxError(Exit.LOCKED, f"database locked: {error}", "LOCKED")
+            raise IcliError(Exit.LOCKED, f"database locked: {error}", "LOCKED")
         except WorkerStartError as error:
-            raise IdaxError(Exit.LOAD, f"load failure: {_tail(str(error))}", "LOAD")
+            raise IcliError(Exit.LOAD, f"load failure: {_tail(str(error))}", "LOAD")
         except DatabaseOpenError as error:
             msg = str(error)
             if "newer" in msg.lower() or "corrupt" in msg.lower():
-                raise IdaxError(Exit.CORRUPT, msg, "CORRUPT")
-            raise IdaxError(Exit.LOAD, f"cannot open database: {_tail(msg)}", "LOAD")
+                raise IcliError(Exit.CORRUPT, msg, "CORRUPT")
+            raise IcliError(Exit.LOAD, f"cannot open database: {_tail(msg)}", "LOAD")
         if self.fresh:
             if s.post_load:
                 self.call("load.post", s.post_load, need="loaded")
@@ -256,7 +256,7 @@ class Session:
             if self.fresh and self.opts.analysis != "none":
                 self._mark_analyzed()
         elif self.opts.analysis == "none":
-            raise IdaxError(Exit.STATE, f"database is not {need} (and --analysis=none)", "STATE")
+            raise IcliError(Exit.STATE, f"database is not {need} (and --analysis=none)", "STATE")
         else:
             self._wait()
         self._ready = not self.partial
@@ -276,7 +276,7 @@ class Session:
                 self.diag("warning", "TIMEOUT",
                           f"analysis stopped after {time.monotonic() - start:.0f}s; state is analyzing")
                 return
-            raise IdaxError(Exit.INTERNAL, f"analysis failed: {error}", "INTERR")
+            raise IcliError(Exit.INTERNAL, f"analysis failed: {error}", "INTERR")
         if res.get("complete"):
             self._mark_analyzed()
             if not self.opts.quiet and self.opts.verbose:
@@ -296,7 +296,7 @@ class Session:
         from ida_nexus import DatabaseDisconnectedError, NexusConnectionError, RemoteError
 
         if self.handle is None:
-            raise IdaxError(Exit.INTERNAL, "session is not open", "INTERR")
+            raise IcliError(Exit.INTERNAL, "session is not open", "INTERR")
         self.ensure(need)
         request = json.dumps({"op": op, "params": params or {}, "ctx": ctx or {}, "prev": prev or []},
                              separators=(",", ":"))
@@ -306,14 +306,14 @@ class Session:
                                              operation_label=f"icli {op}")
         except RemoteError as error:
             if "timeout" in error.code:
-                raise IdaxError(Exit.TIMEOUT, f"{op}: timed out", "TIMEOUT")
+                raise IcliError(Exit.TIMEOUT, f"{op}: timed out", "TIMEOUT")
             detail = error.details.get("traceback") if isinstance(error.details, dict) else None
-            raise IdaxError(Exit.INTERNAL, f"{op}: {error}" + (f"\n{detail}" if detail and self.opts.verbose
+            raise IcliError(Exit.INTERNAL, f"{op}: {error}" + (f"\n{detail}" if detail and self.opts.verbose
                                                                 else ""), "INTERR")
         except DatabaseDisconnectedError as error:
-            raise IdaxError(Exit.INTERNAL, f"IDA process lost: {error}", "INTERR")
+            raise IcliError(Exit.INTERNAL, f"IDA process lost: {error}", "INTERR")
         except NexusConnectionError as error:
-            raise IdaxError(Exit.INTERNAL, f"connection to IDA failed: {error}", "INTERR")
+            raise IcliError(Exit.INTERNAL, f"connection to IDA failed: {error}", "INTERR")
         out = res.get("result") or {}
         if self.opts.verbose >= 2:
             for stream in ("stdout", "stderr"):
@@ -322,7 +322,7 @@ class Session:
         if "error" in out:
             for w in out.get("warnings", []):
                 self.diag(w.get("level", "warning"), w.get("code", ""), w.get("msg", ""))
-            raise IdaxError.from_dict(out["error"])
+            raise IcliError.from_dict(out["error"])
         return out
 
     def execute(self, code: str, *, timeout: float | None = None, persist: bool = False,

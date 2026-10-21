@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import execution, select
 from ..context import Ctx
 from ..rpc import op
@@ -30,7 +30,7 @@ _COND = re.compile(r"^\s*(==|!=|<=|>=|<|>)\s*(\d+)\s*$")
 def assert_(ctx: Ctx, selectors: list[dict], cond: str, limit: int = 50) -> list[dict]:
     m = _COND.match(cond)
     if not m:
-        raise IdaxError(Exit.USAGE, f"bad condition {cond!r}: expected (==|!=|<|<=|>|>=) N", "USAGE")
+        raise IcliError(Exit.USAGE, f"bad condition {cond!r}: expected (==|!=|<|<=|>|>=) N", "USAGE")
     opname, n = m.group(1), int(m.group(2))
     sel = select.evaluate(ctx, selectors)
     count = len(sel)

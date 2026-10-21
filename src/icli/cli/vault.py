@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..errors import Exit, IdaxError, usage
+from ..errors import Exit, IcliError, usage
 
 _SPEC = re.compile(r"^vault://(?P<site>[^/]+)/(?P<path>[^@]+?)(?:@(?P<rev>\d+))?$")
 
@@ -47,5 +47,5 @@ def checkout(spec: str) -> Path:
         run_hv(["edit", "-s", s["path"]], site=s["site"])
     p = local_path(s)
     if p is None or not p.exists():
-        raise IdaxError(Exit.NETWORK, f"{spec}: checked out, but its local path is unknown", "VAULT")
+        raise IcliError(Exit.NETWORK, f"{spec}: checked out, but its local path is unknown", "VAULT")
     return p

@@ -10,7 +10,7 @@ from ..lang.values import parse_int
 from .session import LoadSpec
 from .settings import Settings
 
-# Loader module names (idx(1)) -> IDA file-format name prefixes accepted by -T.
+# Loader module names (icli(1)) -> IDA file-format name prefixes accepted by -T.
 LOADERS = {
     "pe": "Portable executable", "elf": "ELF", "macho": "Mach-O", "coff": "COFF", "dex": "Android DEX",
     "dsc": "Apple DYLD cache", "uefi_fv": "UEFI firmware", "wasm": "WebAssembly", "windmp": "Windows Crash Dump",

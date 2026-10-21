@@ -1,4 +1,4 @@
-"""Global options and load options (GLOBAL OPTIONS / LOAD OPTIONS in idx(1)).
+"""Global options and load options (GLOBAL OPTIONS / LOAD OPTIONS in icli(1)).
 
 Global options may appear before the command name and, for convenience,
 anywhere after it; the same definitions are added to every parser with

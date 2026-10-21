@@ -4,7 +4,7 @@ import pytest
 
 from icli.cli.main import command_parser, first_positional, parse, _global_parser
 from icli.cli.registry import COMMANDS, load_commands
-from icli.errors import Exit, IdaxError
+from icli.errors import Exit, IcliError
 
 load_commands()
 
@@ -36,7 +36,7 @@ def test_first_positional_skips_option_values():
 
 @pytest.mark.parametrize("argv", [["frob"], ["list"], ["type"], ["type", "bogus"], ["list", "functions", "--nope"]])
 def test_usage_errors(argv):
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         parse(argv)
     assert e.value.status == Exit.USAGE
 

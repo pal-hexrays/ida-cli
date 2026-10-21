@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ..registry import COMMANDS, Command, Invocation, register
 
 
@@ -227,5 +227,5 @@ class Legacy(Command):
         d = idadir()
         idat = next((d / n for n in ("idat", "idat64", "idat.exe", "idat64.exe") if d and (d / n).exists()), None)
         if idat is None:
-            raise IdaxError(Exit.LICENSE, "idat not found in the IDA installation", "NOTOOL")
+            raise IcliError(Exit.LICENSE, "idat not found in the IDA installation", "NOTOOL")
         return subprocess.call([str(idat), *args])

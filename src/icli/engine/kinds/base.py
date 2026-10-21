@@ -3,7 +3,7 @@
 Every object icli knows about is an :class:`Item` of some :class:`Kind`.  A
 kind names its fields once, as ``f_<field>`` methods; the same fields serve
 as record keys, predicate variables, template placeholders and ``--fields``
-(FIELDS AND TEMPLATES in idx(1)).  Values are computed lazily and cached per
+(FIELDS AND TEMPLATES in icli(1)).  Values are computed lazily and cached per
 item, so predicates only pay for what they reference.
 """
 
@@ -233,11 +233,11 @@ def register(cls: type[Kind]) -> type[Kind]:
 
 
 def get_kind(name: str) -> Kind:
-    from ...errors import Exit, IdaxError
+    from ...errors import Exit, IcliError
 
     kind = KINDS.get(name)
     if kind is None:
-        raise IdaxError(Exit.USAGE, f"unknown kind {name!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown kind {name!r}", "USAGE")
     return kind
 
 

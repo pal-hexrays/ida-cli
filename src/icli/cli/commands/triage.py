@@ -7,7 +7,7 @@ import fnmatch
 import sys
 from pathlib import Path
 
-from ...errors import Exit, IdaxError, combine, usage
+from ...errors import Exit, IcliError, combine, usage
 from ..registry import Command, Invocation, register
 
 HASHES = ("md5", "sha1", "sha256", "ssdeep", "tlsh")
@@ -83,7 +83,7 @@ class Loaders(Command):
         for f in inv.args.items:
             p = Path(f)
             if not p.is_file():
-                raise IdaxError(Exit.NOT_FOUND, f"{f}: no such file", "NOTFOUND")
+                raise IcliError(Exit.NOT_FOUND, f"{f}: no such file", "NOTFOUND")
             found = local.loaders_for(p)
             if not found:
                 status = Exit.NEGATIVE

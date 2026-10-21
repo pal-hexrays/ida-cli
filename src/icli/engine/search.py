@@ -19,9 +19,9 @@ def compile_bytes(pattern: str) -> ida_bytes.compiled_binpat_vec_t:
     vec = ida_bytes.compiled_binpat_vec_t()
     err = ida_bytes.parse_binpat_str(vec, ida_ida.inf_get_min_ea(), text, 16)
     if err is False or err is None and vec.empty():
-        from ..errors import Exit, IdaxError
+        from ..errors import Exit, IcliError
 
-        raise IdaxError(Exit.USAGE, f"bad byte pattern {pattern!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"bad byte pattern {pattern!r}", "USAGE")
     return vec
 
 

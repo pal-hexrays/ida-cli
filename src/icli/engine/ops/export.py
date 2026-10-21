@@ -1,4 +1,4 @@
-"""export: produce files from the database (Export formats in idx(1))."""
+"""export: produce files from the database (Export formats in icli(1))."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import ida_name
 import ida_nalt
 import ida_segment
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang import graph as lgraph
 from ...lang import template as tmpl
 from .. import decomp, journal, select, typesupport
@@ -39,14 +39,14 @@ def _bounds(ctx: Ctx, selectors: list[dict] | None) -> tuple[int, int]:
         return ida_ida.inf_get_min_ea(), ida_ida.inf_get_max_ea()
     sp = spans(select.evaluate(ctx, selectors))
     if not sp:
-        raise IdaxError(Exit.EMPTY_SELECTION, "selector matched nothing", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "selector matched nothing", "NOMATCH")
     return min(s for s, _ in sp), max(e for _, e in sp)
 
 
 def _kernel_file(ctx: Ctx, fmt: str, path: str, ea1: int, ea2: int, flags: int) -> None:
     f = ida_fpro.qfile_t()
     if not f.open(path, "wb"):
-        raise IdaxError(Exit.NOT_FOUND, f"{path}: cannot write", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{path}: cannot write", "NOTFOUND")
     try:
         if fmt == "exe":
             n = ida_loader.gen_exe_file(f.get_fp())
@@ -55,7 +55,7 @@ def _kernel_file(ctx: Ctx, fmt: str, path: str, ea1: int, ea2: int, flags: int) 
     finally:
         f.close()
     if n is not None and n < 0:
-        raise IdaxError(Exit.LOAD, f"export {fmt}: the kernel could not generate this format", "EXPORT")
+        raise IcliError(Exit.LOAD, f"export {fmt}: the kernel could not generate this format", "EXPORT")
 
 
 def _write(path: str, data: str | bytes) -> int:
@@ -117,7 +117,7 @@ def _patched_input(path: str, in_place: bool) -> tuple[str, dict]:
     (works for any file format, unlike the kernel's EXE generator)."""
     src = ida_nalt.get_input_file_path()
     if not src or not Path(src).is_file():
-        raise IdaxError(Exit.NOT_FOUND, f"input file {src or '?'} is not available to rebuild", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"input file {src or '?'} is not available to rebuild", "NOTFOUND")
     data = bytearray(Path(src).read_bytes())
     applied = skipped = 0
 
@@ -237,7 +237,7 @@ def _graph(ctx: Ctx, selectors: list[dict] | None, kind: str) -> tuple[list[dict
                 edges.append({"src": src, "dst": nm(fi.ea)})
                 ok = xb.next_to()
     else:
-        raise IdaxError(Exit.USAGE, f"--graph {kind}: one of calls, flow, xrefs", "USAGE")
+        raise IcliError(Exit.USAGE, f"--graph {kind}: one of calls, flow, xrefs", "USAGE")
     return list(nodes.values()), edges, f"{kind} graph"
 
 
@@ -386,7 +386,7 @@ def _export(ctx: Ctx, fmt: str, path: str | None, selectors: list[dict] | None, 
     if fmt == "sarif":
         _write(path, _sarif(ctx, selectors))
         return done(path)
-    raise IdaxError(Exit.USAGE, f"export format {fmt!r} is handled by the client", "USAGE")
+    raise IcliError(Exit.USAGE, f"export format {fmt!r} is handled by the client", "USAGE")
 
 
 # -- minimal database (export i64 with a selector) ------------------------------------------------------------
@@ -400,7 +400,7 @@ def export_minimal(ctx: Ctx, selectors: list[dict]) -> dict:
 
     funcs = list(select.functions_of(ctx, select.evaluate(ctx, selectors)))
     if not funcs:
-        raise IdaxError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
     seg_bits = 64 if ida_ida.inf_is_64bit() else 32
     regions, functions, names = [], [], []
     for fi in funcs:
@@ -435,7 +435,7 @@ def export_minimal_apply(ctx: Ctx, spec: dict) -> dict:
         if f.get("type"):
             try:
                 typesupport.apply_decl(f["start"], f["type"])
-            except IdaxError:
+            except IcliError:
                 pass
     for n in spec.get("names", []):
         if n.get("name") and ida_segment.getseg(n["ea"]) is not None:

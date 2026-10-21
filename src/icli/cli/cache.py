@@ -46,9 +46,9 @@ def ensure_dir(d: Path) -> Path:
     try:
         d.mkdir(parents=True, exist_ok=True)
     except OSError as error:
-        from ..errors import Exit, IdaxError
+        from ..errors import Exit, IcliError
 
-        raise IdaxError(Exit.NOT_FOUND, f"cache directory {d}: {error.strerror}", "CACHE")
+        raise IcliError(Exit.NOT_FOUND, f"cache directory {d}: {error.strerror}", "CACHE")
     return d
 
 
@@ -61,7 +61,7 @@ def connect() -> sqlite3.Connection:
 
 def file_sha256(path: Path) -> str:
     """SHA-256 of a file, memoised in the index by (path, size, mtime)."""
-    from ..errors import IdaxError
+    from ..errors import IcliError
 
     st = path.stat()
     key = str(path.resolve())
@@ -70,7 +70,7 @@ def file_sha256(path: Path) -> str:
             row = conn.execute("SELECT size, mtime_ns, sha256 FROM hashes WHERE path=?", (key,)).fetchone()
             if row and row[0] == st.st_size and row[1] == st.st_mtime_ns:
                 return row[2]
-    except (sqlite3.Error, IdaxError):
+    except (sqlite3.Error, IcliError):
         row = None
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -81,7 +81,7 @@ def file_sha256(path: Path) -> str:
         with connect() as conn:
             conn.execute("INSERT OR REPLACE INTO hashes VALUES (?,?,?,?)",
                          (key, st.st_size, st.st_mtime_ns, digest))
-    except (sqlite3.Error, IdaxError):
+    except (sqlite3.Error, IcliError):
         pass
     return digest
 
@@ -188,7 +188,7 @@ def remember_last(target: str) -> None:
 
 
 def last_target() -> str | None:
-    v = os.environ.get("ICLI_LAST") or os.environ.get("IDX_LAST")
+    v = os.environ.get("ICLI_LAST")
     if v:
         return v
     try:

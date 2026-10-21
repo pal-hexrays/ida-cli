@@ -11,7 +11,7 @@ import ida_gdl
 import ida_name
 import ida_typeinf
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang.graph import render
 from .. import decomp, listing, typesupport
 from ..context import A, Ctx
@@ -163,13 +163,13 @@ def _functions(ctx: Ctx, sel: Any) -> list:
 
     fs = list(select.functions_of(ctx, sel))
     if not fs:
-        raise IdaxError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
     return fs
 
 
 def _cfg_graphs(ctx: Ctx, sel: Any, fmt: str) -> Any:
     if fmt not in ("dot", "gdl", "json"):
-        raise IdaxError(Exit.USAGE, f"--graph {fmt}: one of dot, gdl, json", "USAGE")
+        raise IcliError(Exit.USAGE, f"--graph {fmt}: one of dot, gdl, json", "USAGE")
     out = []
     for fi in _functions(ctx, sel):
         fc = ida_gdl.FlowChart(fi.obj, flags=ida_gdl.FC_PREDS)

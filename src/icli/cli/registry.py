@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, ClassVar
 
-from ..errors import Exit, IdaxError, combine, usage
+from ..errors import Exit, IcliError, combine, usage
 from ..lang import selector as psel
 from .options import GlobalOptions
 from .output import Emitter
@@ -171,7 +171,7 @@ class Invocation:
         if node["op"] == "file":
             p = Path(node["path"])
             if not p.is_file():
-                raise IdaxError(Exit.NOT_FOUND, f"@{node['path']}: no such file", "NOTFOUND")
+                raise IcliError(Exit.NOT_FOUND, f"@{node['path']}: no such file", "NOTFOUND")
             sels = lines_to_selectors(p.read_text().splitlines(), str(p))
             return {"op": "union", "args": sels} if sels else {"op": "items", "items": []}
         return None

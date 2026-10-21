@@ -7,7 +7,7 @@
 Operators: ``== != < <= > >= && || !`` and ``~`` (regex search on strings),
 plus ``+ - * /`` arithmetic and parentheses.  A bare field in a boolean
 context tests its truthiness.  Used by ``list --where`` and selector
-predicates; see SELECTORS / Predicates in idx(1).
+predicates; see SELECTORS / Predicates in icli(1).
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Text templates: ``{field}`` and ``{field:spec}`` placeholders.
 
 Used by ``-t``, ``--header``/``--footer``, edit arguments (``rename ...
-'f_{hash:.8}'``) and ``-o`` output paths.  See FIELDS AND TEMPLATES in idx(1).
+'f_{hash:.8}'``) and ``-o`` output paths.  See FIELDS AND TEMPLATES in icli(1).
 """
 
 from __future__ import annotations

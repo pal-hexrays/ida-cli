@@ -6,7 +6,7 @@ from typing import Any, Iterable
 
 import ida_bytes
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang import expr as pexpr
 from .. import select
 from ..context import Ctx
@@ -18,12 +18,12 @@ def selection(ctx: Ctx, selectors: list[dict] | None, *, required: bool = True) 
     the command requires a selection, a warning otherwise."""
     if not selectors:
         if required:
-            raise IdaxError(Exit.USAGE, "this command needs at least one selector", "USAGE")
+            raise IcliError(Exit.USAGE, "this command needs at least one selector", "USAGE")
         return select.Selection()
     sel = select.evaluate(ctx, selectors)
     if not len(sel):
         if required:
-            raise IdaxError(Exit.EMPTY_SELECTION, "selector matched nothing", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, "selector matched nothing", "NOMATCH")
         ctx.warn("NOMATCH", "selector matched nothing")
     return sel
 
@@ -99,7 +99,7 @@ def sort_items(ctx: Ctx, items: list[Item], sort: str | None) -> list[Item]:
         return items
     field, _, order = sort.partition(":")
     if order not in ("", "asc", "desc"):
-        raise IdaxError(Exit.USAGE, f"bad sort order {order!r} (asc or desc)", "USAGE")
+        raise IcliError(Exit.USAGE, f"bad sort order {order!r} (asc or desc)", "USAGE")
     desc = order == "desc"
 
     def key(it: Item) -> tuple:
@@ -138,5 +138,5 @@ def kind_for_list(name: str) -> Kind:
              "tils", "sigs", "comments", "bookmarks", "tags", "problems", "fixups", "blocks", "patches",
              "lvars", "switches"]
     if k is None or name not in valid:
-        raise IdaxError(Exit.USAGE, f"unknown kind {name!r}; one of: {', '.join(valid)}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown kind {name!r}; one of: {', '.join(valid)}", "USAGE")
     return k

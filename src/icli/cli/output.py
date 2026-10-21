@@ -1,5 +1,5 @@
 """Stream output: text, json, jsonl, csv, tsv, raw and templates
-(OUTPUT FORMATS in idx(1)).  Diagnostics never go to standard output."""
+(OUTPUT FORMATS in icli(1)).  Diagnostics never go to standard output."""
 
 from __future__ import annotations
 

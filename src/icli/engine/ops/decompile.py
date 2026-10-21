@@ -10,7 +10,7 @@ import ida_hexrays
 import ida_idaapi
 import ida_lines
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import decomp, select, typesupport
 from ..context import A, Ctx
 from ..kinds import KINDS
@@ -158,7 +158,7 @@ def decompile(ctx: Ctx, selectors: list[dict] | None = None, all: bool = False, 
     decomp.require()
     for d in hexrays_directives or []:
         if not ida_hexrays.change_hexrays_config(d):
-            raise IdaxError(Exit.USAGE, f"--hexrays-option: rejected {d!r}", "USAGE")
+            raise IcliError(Exit.USAGE, f"--hexrays-option: rejected {d!r}", "USAGE")
     if fresh:
         decomp.reset()
     fk = KINDS["function"]
@@ -179,7 +179,7 @@ def decompile(ctx: Ctx, selectors: list[dict] | None = None, all: bool = False, 
         sel_items = selection(ctx, selectors)
         funcs = list(select.functions_of(ctx, sel_items))
         if not funcs:
-            raise IdaxError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
+            raise IcliError(Exit.EMPTY_SELECTION, "selection contains no function", "NOMATCH")
     if at_line:
         return _at_line(ctx, sel_items, fresh)
     out = []
@@ -200,7 +200,7 @@ def decompile(ctx: Ctx, selectors: list[dict] | None = None, all: bool = False, 
             ctx.set_status(Exit.PARTIAL)
         else:
             r = out[-1]
-            raise IdaxError(Exit.DECOMPILE, f"{r['name']}: decompilation failed at "
+            raise IcliError(Exit.DECOMPILE, f"{r['name']}: decompilation failed at "
                             f"{r['err_ea'] or r['ea']}: {r['hexrays_msg']}", "HEXRAYS")
     return out
 

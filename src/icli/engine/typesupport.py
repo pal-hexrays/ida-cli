@@ -8,7 +8,7 @@ import ida_funcs
 import ida_nalt
 import ida_typeinf
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _KEYWORDS = {
@@ -72,9 +72,9 @@ def parse_decl(decl: str, *, function: bool = False) -> tuple[ida_typeinf.tinfo_
         # an abstract type ("int (*)(void)") has no name
         name = ida_typeinf.parse_decl(tif, til, text, ida_typeinf.PT_SIL)
     if name is None or tif.empty():
-        raise IdaxError(Exit.USAGE, f"cannot parse declaration: {decl!r}", "BADDECL")
+        raise IcliError(Exit.USAGE, f"cannot parse declaration: {decl!r}", "BADDECL")
     if function and not tif.is_func():
-        raise IdaxError(Exit.USAGE, f"not a function prototype: {decl!r}", "BADDECL")
+        raise IcliError(Exit.USAGE, f"not a function prototype: {decl!r}", "BADDECL")
     return tif, name or ""
 
 
@@ -82,7 +82,7 @@ def parse_type(text: str) -> ida_typeinf.tinfo_t:
     """Parse a bare type ("unsigned int *", "pkt_t *") or a declaration."""
     try:
         return parse_decl(text)[0]
-    except IdaxError:
+    except IcliError:
         return parse_decl(f"{text.strip().rstrip(';')} __icli_tmp")[0]
 
 
@@ -90,7 +90,7 @@ def apply_decl(ea: int, decl: str) -> bool:
     is_func = (f := ida_funcs.get_func(ea)) is not None and f.start_ea == ea
     tif, _ = parse_decl(decl)
     if is_func and not tif.is_func():
-        raise IdaxError(Exit.USAGE, f"{ea:#x} is a function; {decl!r} is not a prototype", "BADDECL")
+        raise IcliError(Exit.USAGE, f"{ea:#x} is a function; {decl!r} is not a prototype", "BADDECL")
     return bool(ida_typeinf.apply_tinfo(ea, tif, ida_typeinf.TINFO_DEFINITE))
 
 
@@ -110,7 +110,7 @@ def normalize(decl: str | None) -> str | None:
         return None
     try:
         tif, name = parse_decl(decl)
-    except IdaxError:
+    except IcliError:
         return decl.strip().rstrip(";")
     return ida_typeinf.print_tinfo("", 0, 0, ida_typeinf.PRTYPE_1LINE, tif, name, "") or str(tif)
 

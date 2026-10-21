@@ -1,4 +1,4 @@
-"""icli: a non-interactive command-line interface to IDA Pro (idx(1))."""
+"""icli: a non-interactive command-line interface to IDA Pro (icli(1))."""
 
 __version__ = "0.1.0"
 

@@ -12,7 +12,7 @@ import ida_ida
 import ida_name
 import ida_ua
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from .. import decomp, listing, search as srch
 from ..context import A, Ctx
 from ..kinds import KINDS, compile_pattern
@@ -163,7 +163,7 @@ def search(ctx: Ctx, mode: str, value: Any = None, selectors: list[dict] | None 
                     break
         out.sort(key=lambda r: int(r["ea"]))
     else:
-        raise IdaxError(Exit.USAGE, f"unknown search mode {mode!r}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown search mode {mode!r}", "USAGE")
     if not out:
         ctx.set_status(Exit.NEGATIVE)
     return out[:limit] if limit is not None else out
@@ -173,4 +173,4 @@ def _rx(text: str) -> "re.Pattern[str]":
     try:
         return re.compile(text)
     except re.error as error:
-        raise IdaxError(Exit.USAGE, f"bad regular expression {text!r}: {error}", "USAGE")
+        raise IcliError(Exit.USAGE, f"bad regular expression {text!r}: {error}", "USAGE")

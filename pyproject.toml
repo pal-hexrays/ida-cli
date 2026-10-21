@@ -1,7 +1,7 @@
 [project]
 name = "icli"
 version = "0.1.0"
-description = "icli: non-interactive IDA Pro command-line interface (idx(1))"
+description = "icli: non-interactive IDA Pro command-line interface"
 authors = [
     { name = "Pierre-Alexandre Losson", email = "palosson@hex-rays.com" }
 ]
@@ -16,7 +16,6 @@ dependencies = [
 
 [project.scripts]
 icli = "icli:main"
-idax = "icli:main"
 
 [build-system]
 requires = ["uv_build>=0.10.0,<0.11.0"]

@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from ...errors import Exit, IdaxError, combine, usage
-from ..env import icli_home, idausr
+from ...errors import Exit, IcliError, combine, usage
+from ..env import icli_home
 from ..output import Emitter
 from ..registry import Command, Invocation, register, stdin_lines
 
@@ -18,12 +18,12 @@ from ..registry import Command, Invocation, register, stdin_lines
 
 
 def recipe_path(name: str) -> Path:
-    for base in (icli_home() / "icli" / "recipes", idausr() / "idx" / "recipes", Path.cwd()):
-        for ext in (".icli", ".idx", ""):
+    for base in (icli_home() / "icli" / "recipes", Path.cwd()):
+        for ext in (".icli", ""):
             p = base / f"{name}{ext}"
             if p.is_file():
                 return p
-    raise IdaxError(Exit.NOT_FOUND, f"recipe @{name} not found in {icli_home() / 'icli' / 'recipes'}", "NOTFOUND")
+    raise IcliError(Exit.NOT_FOUND, f"recipe @{name} not found in {icli_home() / 'icli' / 'recipes'}", "NOTFOUND")
 
 
 def recipe_steps(name: str, fields: dict[str, str]) -> list[list[str]]:
@@ -83,7 +83,7 @@ def run_chain(inv: Invocation, steps: list[list[str]], *, keep_going: bool, no_s
             finally:
                 emitter.close()
             prev = sub.produced
-        except IdaxError as error:
+        except IcliError as error:
             inv.emitter.diag("error", error.code, f"step {index} ({' '.join(argv[:2])}): {error.message}")
             st = error.status
         status = combine(status, st)
@@ -159,7 +159,7 @@ class Batch(Command):
             try:
                 lines = Path(source).read_text().splitlines()
             except OSError as error:
-                raise IdaxError(Exit.NOT_FOUND, f"{source}: {error.strerror}", "NOTFOUND")
+                raise IcliError(Exit.NOT_FOUND, f"{source}: {error.strerror}", "NOTFOUND")
         steps = [shlex.split(line) for line in lines if line.strip() and not line.strip().startswith("#")]
         if not steps:
             raise usage("icli batch: no steps")
@@ -206,7 +206,7 @@ class Exec(Command):
             try:
                 code, filename = p.read_text(), str(p.resolve())
             except OSError as error:
-                raise IdaxError(Exit.NOT_FOUND, f"{rest[0]}: {error.strerror}", "NOTFOUND")
+                raise IcliError(Exit.NOT_FOUND, f"{rest[0]}: {error.strerror}", "NOTFOUND")
         else:
             raise usage("icli exec: expected -c CODE, a file, or - (standard input)")
         if a.lang == "py":

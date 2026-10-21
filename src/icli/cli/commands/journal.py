@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ...errors import Exit, IdaxError, usage
+from ...errors import Exit, IcliError, usage
 from ..registry import Invocation, register, stdin_lines
 from .edit import Edit
 
@@ -33,7 +33,7 @@ def _lines(path: str) -> list[str]:
     try:
         text = Path(path).read_text()
     except OSError as error:
-        raise IdaxError(Exit.NOT_FOUND, f"{path}: {error.strerror}", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{path}: {error.strerror}", "NOTFOUND")
     try:
         return [json.dumps(json.loads(text))]  # one (possibly indented) -f json document
     except json.JSONDecodeError:

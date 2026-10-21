@@ -12,7 +12,7 @@ import ida_idaapi
 import ida_nalt
 import ida_name
 
-from ...errors import Exit, IdaxError
+from ...errors import Exit, IcliError
 from ...lang.values import parse_address_number, parse_duration
 from .. import edits, journal
 from ..context import Ctx
@@ -97,11 +97,11 @@ def undo(ctx: Ctx, to: int | None = None, n: int = 1) -> list[dict]:
     entries = list(journal.records())
     if to is not None:
         if to < 0 or to > len(entries):
-            raise IdaxError(Exit.USAGE, f"--to {to}: journal has revisions 1..{len(entries)}", "USAGE")
+            raise IcliError(Exit.USAGE, f"--to {to}: journal has revisions 1..{len(entries)}", "USAGE")
         targets = [e for e in entries if e["rev"] > to]
     else:
         if n < 1:
-            raise IdaxError(Exit.USAGE, "-n must be >= 1", "USAGE")
+            raise IcliError(Exit.USAGE, "-n must be >= 1", "USAGE")
         targets = entries[-n:]
     if not targets:
         ctx.warn("NOMATCH", "nothing to undo")
@@ -164,7 +164,7 @@ def _changes_of(rec: dict) -> list[tuple[str, Any, Any]]:
 def apply(ctx: Ctx, records: list[dict], on_conflict: str = "fail", only: list[str] | None = None,
           rebase: bool = False) -> list[dict]:
     if on_conflict not in ("fail", "skip", "ours", "theirs"):
-        raise IdaxError(Exit.USAGE, "--on-conflict: one of fail, skip, ours, theirs", "USAGE")
+        raise IcliError(Exit.USAGE, "--on-conflict: one of fail, skip, ours, theirs", "USAGE")
     only_kinds = set()
     for k in only or []:
         only_kinds |= {"name", "lvar_name"} if k == "rename" else {"type", "lvar_type"} if k == "type" else {k}
@@ -188,7 +188,7 @@ def apply(ctx: Ctx, records: list[dict], on_conflict: str = "fail", only: list[s
                 h.user(ea, key, current) and current not in (None, "", [])
             if conflict:
                 if on_conflict == "fail":
-                    raise IdaxError(Exit.CONFLICT, f"{ea:#x}: {kind} is {current!r}, record expects "
+                    raise IcliError(Exit.CONFLICT, f"{ea:#x}: {kind} is {current!r}, record expects "
                                     f"{expected!r} -> {value!r}", "CONFLICT")
                 if on_conflict in ("skip", "ours"):
                     skipped += on_conflict == "skip"

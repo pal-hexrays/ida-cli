@@ -17,7 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterator
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 from .env import idadir, idausr
 
 
@@ -61,12 +61,12 @@ class _IdpDesc(ctypes.Structure):
 def kernel() -> ctypes.CDLL:
     """Initialise idalib in this process (no database) and return libida."""
     if idadir() is None:
-        raise IdaxError(Exit.LICENSE, "IDA installation not found (set IDADIR or run py-activate-idalib.py)",
+        raise IcliError(Exit.LICENSE, "IDA installation not found (set IDADIR or run py-activate-idalib.py)",
                         "NOIDA")
     try:
         import idapro  # noqa: F401  (initialises the kernel)
     except Exception as error:  # noqa: BLE001 - licence and installation problems
-        raise IdaxError(Exit.LICENSE, f"cannot initialise idalib: {error}", "LICENSE")
+        raise IcliError(Exit.LICENSE, f"cannot initialise idalib: {error}", "LICENSE")
     names = {"darwin": "libida.dylib", "win32": "ida.dll"}.get(sys.platform, "libida.so")
     lib = ctypes.CDLL(str(idadir() / names))
     lib.build_loaders_list.restype = ctypes.POINTER(_LoadInfo)
@@ -84,7 +84,7 @@ def loaders_for(path: Path) -> list[dict]:
     lib = kernel()
     li = lib.open_linput(str(path).encode(), False)
     if not li:
-        raise IdaxError(Exit.NOT_FOUND, f"{path}: cannot open", "NOTFOUND")
+        raise IcliError(Exit.NOT_FOUND, f"{path}: cannot open", "NOTFOUND")
     try:
         head = lib.build_loaders_list(li, str(path).encode())
         out = []
@@ -203,13 +203,13 @@ def local_database(path: Path, args: str = "", *, save: bool = True) -> Iterator
     from ida_nexus import find_database_owner
 
     if find_database_owner(str(path)) is not None:
-        raise IdaxError(Exit.LOCKED, f"{path}: database is open in another process", "LOCKED")
+        raise IcliError(Exit.LOCKED, f"{path}: database is open in another process", "LOCKED")
     kernel()
     import idapro
 
     rc = idapro.open_database(str(path), False, args)
     if rc != 0:
-        raise IdaxError(Exit.CORRUPT if path.suffix in (".i64", ".idb") else Exit.LOAD,
+        raise IcliError(Exit.CORRUPT if path.suffix in (".i64", ".idb") else Exit.LOAD,
                         f"{path}: cannot open (error {rc})", "OPEN")
     try:
         yield idapro
@@ -234,7 +234,7 @@ def scratch_database() -> Iterator[Any]:
     blob.write_bytes(b"\x90" * 16)
     rc = idapro.open_database(str(blob), False, "-Tbinary -pmetapc")
     if rc != 0:
-        raise IdaxError(Exit.INTERNAL, f"cannot create a scratch database (error {rc})", "INTERR")
+        raise IcliError(Exit.INTERNAL, f"cannot create a scratch database (error {rc})", "INTERR")
     try:
         yield idapro
     finally:
@@ -267,7 +267,7 @@ def upgrade_idb(idb: Path, out: Path | None = None) -> Path:
     with local_database(idb, ""):
         _repair_input_path(idb)
     if not target.exists():
-        raise IdaxError(Exit.CORRUPT, f"{idb}: the kernel did not produce {target.name}", "UPGRADE")
+        raise IcliError(Exit.CORRUPT, f"{idb}: the kernel did not produce {target.name}", "UPGRADE")
     for leftover in (idb.with_suffix(".id0.upgrade.log"),):
         leftover.unlink(missing_ok=True)
     if out is not None and out.resolve() != target.resolve():

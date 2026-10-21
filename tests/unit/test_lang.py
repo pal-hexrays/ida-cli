@@ -2,7 +2,7 @@
 
 import pytest
 
-from icli.errors import Exit, IdaxError, combine
+from icli.errors import Exit, IcliError, combine
 from icli.lang import expr, selector, template, values
 
 
@@ -30,7 +30,7 @@ def test_durations(text, want):
 
 @pytest.mark.parametrize("text", ["", "abc", "10x", "m5", "-5s"])
 def test_duration_rejects(text):
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         values.parse_duration(text)
     assert e.value.status == Exit.USAGE
 
@@ -38,7 +38,7 @@ def test_duration_rejects(text):
 def test_sizes():
     assert values.parse_size("50G") == 50 << 30
     assert values.parse_size("512M") == 512 << 20
-    with pytest.raises(IdaxError):
+    with pytest.raises(IcliError):
         values.parse_size("lots")
 
 
@@ -84,13 +84,13 @@ def test_template_default_newline():
 
 @pytest.mark.parametrize("bad", ["{unterminated", "oops}", "{1abc}", "{a b}", "{}"])
 def test_template_rejects(bad):
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         template.parse(bad)
     assert e.value.status == Exit.USAGE
 
 
 def test_template_bad_spec_is_usage_error():
-    with pytest.raises(IdaxError):
+    with pytest.raises(IcliError):
         template.render_inline("{name:#x}", {"name": "main"})
 
 
@@ -134,13 +134,13 @@ def test_predicates(text, rec, want):
 
 @pytest.mark.parametrize("bad", ["", "size >", "&& a", "(a", "a b", "size > 0x", "'unterminated", "a ~ "])
 def test_predicate_rejects(bad):
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         expr.parse(bad)
     assert e.value.status == Exit.USAGE
 
 
 def test_predicate_bad_regex_is_usage():
-    with pytest.raises(IdaxError):
+    with pytest.raises(IcliError):
         expr.test('name ~ "("', _rec(name="x"))
 
 
@@ -164,7 +164,7 @@ def test_selector_atoms():
 
 
 def test_selector_bare_decimal_rejected():
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         selector.parse("401000")
     assert e.value.status == Exit.USAGE
 
@@ -191,7 +191,7 @@ def test_selector_typed_and_regex():
 
 def test_selector_bytes_pattern():
     assert selector.parse("bytes:558BEC??")["pattern"] == "558BEC??"
-    with pytest.raises(IdaxError):
+    with pytest.raises(IcliError):
         selector.parse("bytes:5G")
 
 
@@ -237,6 +237,6 @@ def test_selector_special_atoms():
                                  "callers(a, 0)", "$nope", "rva:12", "func:/(/", "a)", "[x]",
                                  "func:/x/q"])
 def test_selector_rejects(bad):
-    with pytest.raises(IdaxError) as e:
+    with pytest.raises(IcliError) as e:
         selector.parse(bad)
     assert e.value.status == Exit.USAGE

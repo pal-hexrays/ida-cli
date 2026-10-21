@@ -7,7 +7,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 
 
 def _spec() -> dict[str, Any]:
@@ -15,7 +15,7 @@ def _spec() -> dict[str, Any]:
         ref = importlib.import_module("ida_nexus.reference")
         return ref._build_reference_spec()  # noqa: SLF001 - the index behind the public reference()
     except Exception as error:  # noqa: BLE001
-        raise IdaxError(Exit.INTERNAL, f"cannot build the ida-domain reference index: {error}", "INTERR")
+        raise IcliError(Exit.INTERNAL, f"cannot build the ida-domain reference index: {error}", "INTERR")
 
 
 def _example(spec: dict[str, Any], name: str) -> str:

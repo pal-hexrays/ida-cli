@@ -9,7 +9,7 @@ import ida_funcs
 import ida_idaapi
 import ida_lines
 
-from ..errors import Exit, IdaxError
+from ..errors import Exit, IcliError
 
 _available: bool | None = None
 
@@ -30,7 +30,7 @@ def require() -> None:
     if not available():
         import ida_ida
 
-        raise IdaxError(
+        raise IcliError(
             Exit.LICENSE,
             f"no decompiler available for processor {ida_ida.inf_get_procname()}",
             "LICENSE",
@@ -129,16 +129,16 @@ def microcode(ea: int, maturity: str = "lvars") -> str:
     import ida_hexrays
 
     if maturity not in MATURITIES:
-        raise IdaxError(Exit.USAGE, f"unknown maturity {maturity!r}; one of {', '.join(MATURITIES)}", "USAGE")
+        raise IcliError(Exit.USAGE, f"unknown maturity {maturity!r}; one of {', '.join(MATURITIES)}", "USAGE")
     f = ida_funcs.get_func(ea)
     if f is None:
-        raise IdaxError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
+        raise IcliError(Exit.EMPTY_SELECTION, f"no function at {ea:#x}", "NOMATCH")
     mbr = ida_hexrays.mba_ranges_t(f)
     hf = ida_hexrays.hexrays_failure_t()
     mba = ida_hexrays.gen_microcode(mbr, hf, None, ida_hexrays.DECOMP_NO_WAIT | ida_hexrays.DECOMP_ALL_BLKS,
                                     getattr(ida_hexrays, MATURITIES[maturity]))
     if mba is None:
-        raise IdaxError(Exit.DECOMPILE, f"{ea:#x}: microcode generation failed: {hf.desc()}", "HEXRAYS")
+        raise IcliError(Exit.DECOMPILE, f"{ea:#x}: microcode generation failed: {hf.desc()}", "HEXRAYS")
 
     class _Printer(ida_hexrays.vd_printer_t):
         def __init__(self) -> None:

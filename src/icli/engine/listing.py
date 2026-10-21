@@ -195,9 +195,9 @@ class syntax:
         if idx is None and want in aliases:
             idx = next((i for i, n in enumerate(names) if aliases[want] in n), None)
         if idx is None:
-            from ..errors import Exit, IdaxError
+            from ..errors import Exit, IcliError
 
-            raise IdaxError(Exit.USAGE, f"--syntax {self.name}: not offered by this processor "
+            raise IcliError(Exit.USAGE, f"--syntax {self.name}: not offered by this processor "
                             f"(available: {', '.join(assemblers()) or 'none'})", "USAGE")
         self.old = ida_ida.inf_get_asmtype()
         ida_idp.set_target_assembler(idx)
