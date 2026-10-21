@@ -137,3 +137,36 @@ def test_without_ida_offline_commands_still_work(icli, tmp_path, argv):
     r = icli(*argv, env=_no_ida(tmp_path, "missing-dir"), timeout=60)
     assert r.code == 0, r.err
     assert r.out
+
+
+# -- portability -----------------------------------------------------------------------
+
+
+def test_pid_alive_never_reports_dead_or_bogus_processes():
+    import os
+    import subprocess
+    import sys
+
+    from icli.cli.env import pid_alive
+
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        assert pid_alive(os.getpid())
+        assert pid_alive(child.pid)
+        assert pid_alive(child.pid), "checking a process must not kill it (os.kill(pid, 0) on Windows)"
+    finally:
+        child.kill()
+        child.wait()
+    assert not pid_alive(child.pid)
+    for bogus in (0, -1, -12345, 2**31 - 1):
+        assert not pid_alive(bogus)
+
+
+def test_serve_without_unix_sockets_is_a_usage_error(icli):
+    import sys
+
+    if sys.platform != "win32":
+        pytest.skip("Unix sockets are available here")
+    r = icli("serve", "sample.o", timeout=60)
+    assert r.code == Exit.USAGE and "not available on Windows" in r.err
+    assert "Traceback" not in r.err

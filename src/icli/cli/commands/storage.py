@@ -14,6 +14,7 @@ from pathlib import Path
 from ...errors import Exit, IcliError, usage
 from ...lang.values import parse_duration, parse_size
 from .. import cache
+from ..env import pid_alive
 from ..frozen import self_command
 from ..registry import Command, Invocation, register
 
@@ -200,7 +201,7 @@ class Db(Command):
         owner = find_database_owner(str(db))
         rec = {"_t": "unlock", "db": str(db)}
         if owner is not None:
-            alive = _pid_alive(owner.pid)
+            alive = pid_alive(owner.pid)
             if alive and not inv.args.force:
                 raise IcliError(Exit.LOCKED, f"{db}: held by live process {owner.pid} (use --force)", "LOCKED")
             if alive:
@@ -217,16 +218,6 @@ class Db(Command):
         if len(items) != 1:
             raise usage(f"icli db {sub}: expected one database")
         return items[0]
-
-
-def _pid_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
 
 
 @register
@@ -462,6 +453,8 @@ class Serve(Command):
         from ..opening import open_session, resolve_target
 
         a = inv.args
+        if not srv.UNIX_SOCKETS:
+            raise usage("icli serve is not available on Windows yet")
         if not a.items:
             raise usage("icli serve: expected target(s)")
         targets = [resolve_target(x, inv.g) for x in a.items]

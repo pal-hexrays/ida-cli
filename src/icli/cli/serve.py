@@ -25,7 +25,10 @@ from pathlib import Path
 from typing import Any
 
 from ..errors import Exit, IcliError
-from .env import env, runtime_dir
+from .env import env, pid_alive, runtime_dir
+
+UNIX_SOCKETS = hasattr(socket, "AF_UNIX")
+"""Windows Python has no Unix sockets: there, icli serve is unavailable."""
 
 SERVED: dict[str, Any] = {}
 """Sessions held by this process when it is a server, by database path."""
@@ -46,16 +49,6 @@ def socket_path(db: str | Path) -> Path:
     return runtime_dir() / f"{_key(db)}.sock"
 
 
-def _alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-
-
 def server_for(db: str | Path) -> dict | None:
     """The live server record for a database, if any."""
     p = state_path(db)
@@ -63,7 +56,7 @@ def server_for(db: str | Path) -> dict | None:
         rec = json.loads(p.read_text())
     except (OSError, ValueError):
         return None
-    if not _alive(int(rec.get("pid", 0))):
+    if not pid_alive(int(rec.get("pid", 0))):
         for stale in (p, socket_path(db)):
             with contextlib.suppress(OSError):
                 stale.unlink()
@@ -84,6 +77,8 @@ def _send(address: str, request: dict, token: str | None) -> dict:
     if address.startswith("tcp://"):
         host, _, port = address[6:].rpartition(":")
         sock = socket.create_connection((host or "127.0.0.1", int(port)), timeout=30)
+    elif not UNIX_SOCKETS:
+        raise IcliError(Exit.USAGE, f"{address}: Unix sockets are not available here; use tcp://HOST:PORT", "USAGE")
     else:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(address)
@@ -211,8 +206,9 @@ class _Handler(socketserver.StreamRequestHandler):
         self.wfile.write((json.dumps(res) + "\n").encode())
 
 
-class _UnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
-    daemon_threads = True
+if UNIX_SOCKETS:
+    class _UnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+        daemon_threads = True
 
 
 class _TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -316,7 +312,7 @@ def stop_server(db: str | Path, timeout: float = 60.0) -> bool:
     os.kill(int(rec["pid"]), signal.SIGTERM)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if not _alive(int(rec["pid"])):
+        if not pid_alive(int(rec["pid"])):
             return True
         time.sleep(0.1)
     return False

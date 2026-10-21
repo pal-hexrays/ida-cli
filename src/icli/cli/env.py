@@ -127,5 +127,33 @@ def runtime_dir() -> Path:
     return root / f"icli-{os.getuid()}" if hasattr(os, "getuid") and not base else root / "icli"
 
 
+def pid_alive(pid: int) -> bool:
+    """Whether a process exists.  On Windows ``os.kill(pid, 0)`` would
+    terminate it, so the process is opened and queried instead."""
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        import ctypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED: exists, not ours
+        try:
+            code = ctypes.c_ulong()
+            ok = kernel32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code))
+            return bool(ok) and code.value == 259  # STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
 def author() -> str:
     return env("AUTHOR") or os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
