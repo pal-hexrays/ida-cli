@@ -1,6 +1,6 @@
 [project]
 name = "icli"
-version = "0.1.0"
+version = "0.1.1"
 description = "icli: non-interactive IDA Pro command-line interface"
 authors = [
     { name = "Pierre-Alexandre Losson", email = "palosson@hex-rays.com" }
