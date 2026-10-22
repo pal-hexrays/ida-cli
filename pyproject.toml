@@ -26,6 +26,29 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.1",
 ]
+release = [
+    "python-semantic-release>=10.3.1",
+    "taskipy>=1.14.1",
+]
+
+# Releases, as in ida-hcli: `uv run task <name>` (see .github/workflows/release.yml).
+[tool.taskipy.tasks]
+current-version = "semantic-release version --print-last-released"
+dev-start = "semantic-release version --as-prerelease --patch --prerelease-token dev --no-changelog"
+dev-patch = "semantic-release version --prerelease --prerelease-token dev --no-changelog"
+release-minor = "semantic-release version --minor --no-changelog"
+release-patch = "semantic-release version --patch --no-changelog"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/icli/__init__.py:__version__"]
+# Binaries are built by the release workflow; only the lock file follows the version.
+build_command = """
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+"""
+major_on_zero = false  # Stay in 0.x.x range
+allow_zero_version = true
 
 [tool.pyright]
 # IDAPython modules are importable only inside IDA (engine code runs there).

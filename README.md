@@ -168,6 +168,16 @@ The binary is `dist/icli`. It still needs IDA Pro installed on the computer that
 
 CI builds binaries for Linux, Windows and macOS on every push. You can download them from the workflow run's artifacts.
 
+## Make a release
+
+Releases work as in ida-hcli. In GitHub, open **Actions**, choose **Release**, then **Run workflow**, and pick a release type:
+
+- **dev** makes a pre-release, such as `0.1.1-dev.1`.
+- **release-patch** makes the next patch version, such as `0.1.1`.
+- **release-minor** makes the next minor version, such as `0.2.0`.
+
+The workflow runs the unit tests, sets the new version, tags it, builds the six binaries and attaches them to a GitHub Release. The binaries are not signed yet, so macOS and Windows warn before running them.
+
 ## Run the tests
 
 ```sh
